@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 
@@ -13,6 +14,7 @@ struct CommandLine {
     Operation operation{Operation::analyze};
     std::filesystem::path input_path;
     std::filesystem::path build_path{"build"};
+    std::uintmax_t max_size_kib{100};
     bool show_help{false};
     std::string error;
 

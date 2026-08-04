@@ -17,7 +17,10 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    const auto analysis = codesplit::analysis::analyze_source_file(command.input_path);
+    constexpr std::uintmax_t bytes_per_kib = 1024U;
+    const auto size_limit_bytes = command.max_size_kib * bytes_per_kib;
+    const auto analysis =
+        codesplit::analysis::analyze_source_file(command.input_path, size_limit_bytes);
     if (!analysis) {
         std::cerr << analysis.error << '\n';
         return 1;
@@ -26,6 +29,7 @@ int main(int argc, char* argv[]) {
     std::cout << "File: " << analysis.info.path.string() << '\n';
     std::cout << "Size: " << analysis.info.size_bytes << " bytes\n";
     std::cout << "Lines: " << analysis.info.line_count << '\n';
-    std::cout << "Exceeds 100 KiB: " << (analysis.info.exceeds_size_limit ? "yes" : "no") << '\n';
+    std::cout << "Exceeds " << command.max_size_kib
+              << " KiB: " << (analysis.info.exceeds_size_limit ? "yes" : "no") << '\n';
     return 0;
 }

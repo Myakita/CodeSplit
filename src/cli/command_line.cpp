@@ -1,11 +1,23 @@
 #include "codesplit/cli/command_line.hpp"
 
+#include <charconv>
+#include <limits>
 #include <string_view>
+#include <system_error>
 
 namespace codesplit::cli {
 namespace {
 
 bool is_help_option(std::string_view argument) { return argument == "--help" || argument == "-h"; }
+
+bool parse_max_size(std::string_view argument, std::uintmax_t& value) {
+    const auto conversion =
+        std::from_chars(argument.data(), argument.data() + argument.size(), value);
+    const auto maximum_kib = std::numeric_limits<std::uintmax_t>::max() / 1024U;
+
+    return conversion.ec == std::errc{} && conversion.ptr == argument.data() + argument.size() &&
+           value > 0 && value <= maximum_kib;
+}
 
 } // namespace
 
@@ -47,6 +59,21 @@ CommandLine parse_command_line(int argc, char* argv[]) {
             continue;
         }
 
+        if (argument == "--max-size-kb") {
+            if (++index >= argc) {
+                result.error = "Missing value for --max-size-kb.";
+                return result;
+            }
+
+            const std::string_view value{argv[index]};
+            if (!parse_max_size(value, result.max_size_kib)) {
+                result.error = "Invalid value for --max-size-kb: " + std::string{value};
+                return result;
+            }
+
+            continue;
+        }
+
         result.error = "Unknown option: " + std::string{argument};
         return result;
     }
@@ -56,7 +83,7 @@ CommandLine parse_command_line(int argc, char* argv[]) {
 
 std::string usage() {
     return "Usage:\n"
-           "  codesplit analyze <file> [--build-path <directory>]\n"
+           "  codesplit analyze <file> [--build-path <directory>] [--max-size-kb <number>]\n"
            "  codesplit --help\n";
 }
 
