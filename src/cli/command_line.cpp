@@ -5,9 +5,7 @@
 namespace codesplit::cli {
 namespace {
 
-bool is_help_option(std::string_view argument) {
-    return argument == "--help" || argument == "-h";
-}
+bool is_help_option(std::string_view argument) { return argument == "--help" || argument == "-h"; }
 
 } // namespace
 

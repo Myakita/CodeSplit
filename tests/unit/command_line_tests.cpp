@@ -22,23 +22,21 @@ codesplit::cli::CommandLine parse(std::vector<std::string> arguments) {
         raw_arguments.push_back(argument.data());
     }
 
-    return codesplit::cli::parse_command_line(
-        static_cast<int>(raw_arguments.size()), raw_arguments.data());
+    return codesplit::cli::parse_command_line(static_cast<int>(raw_arguments.size()),
+                                              raw_arguments.data());
 }
 
 void parses_analyze_command() {
     const auto command = parse({"codesplit", "analyze", "src/large.cpp"});
 
     expect(static_cast<bool>(command), "analyze command should be valid");
-    expect(command.operation == codesplit::cli::Operation::analyze,
-           "operation should be analyze");
+    expect(command.operation == codesplit::cli::Operation::analyze, "operation should be analyze");
     expect(command.input_path == "src/large.cpp", "input path should be preserved");
     expect(command.build_path == "build", "default build path should be build");
 }
 
 void parses_build_path() {
-    const auto command =
-        parse({"codesplit", "analyze", "large.cpp", "--build-path", "out/debug"});
+    const auto command = parse({"codesplit", "analyze", "large.cpp", "--build-path", "out/debug"});
 
     expect(static_cast<bool>(command), "command with build path should be valid");
     expect(command.build_path == "out/debug", "custom build path should be preserved");
