@@ -12,6 +12,7 @@ option(CODESPLIT_BUILD_TESTS "Build CodeSplit tests" ON)
 add_library(codesplit_core
     src/analysis/source_file.cpp
     src/cli/command_line.cpp
+    src/reporting/text_report.cpp
 )
 target_include_directories(codesplit_core PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
 target_compile_features(codesplit_core PUBLIC cxx_std_20)

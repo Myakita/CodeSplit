@@ -1,5 +1,6 @@
 #include "codesplit/analysis/source_file.hpp"
 #include "codesplit/cli/command_line.hpp"
+#include "codesplit/reporting/text_report.hpp"
 
 #include <iostream>
 
@@ -26,10 +27,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << "File: " << analysis.info.path.string() << '\n';
-    std::cout << "Size: " << analysis.info.size_bytes << " bytes\n";
-    std::cout << "Lines: " << analysis.info.line_count << '\n';
-    std::cout << "Exceeds " << command.max_size_kib
-              << " KiB: " << (analysis.info.exceeds_size_limit ? "yes" : "no") << '\n';
+    std::cout << codesplit::reporting::format_text_report(analysis.info, command.max_size_kib);
     return 0;
 }
