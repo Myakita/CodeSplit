@@ -26,6 +26,7 @@ endif()
 
 add_executable(codesplit app/main.cpp)
 target_link_libraries(codesplit PRIVATE codesplit_core)
+target_compile_definitions(codesplit PRIVATE CODESPLIT_VERSION="${PROJECT_VERSION}")
 
 if(CODESPLIT_BUILD_TESTS)
     enable_testing()

@@ -43,6 +43,11 @@ CommandLine parse_command_line(int argc, char* argv[]) {
         return result;
     }
 
+    if (argc == 2 && std::string_view{argv[1]} == "--version") {
+        result.show_version = true;
+        return result;
+    }
+
     if (argc < 3) {
         result.error = "Missing command or input file.";
         return result;
@@ -114,6 +119,7 @@ std::string usage() {
     return "Usage:\n"
            "  codesplit analyze <file> [--build-path <directory>] [--max-size-kb <number>] "
            "[--format <text|json>]\n"
+           "  codesplit --version\n"
            "  codesplit --help\n";
 }
 

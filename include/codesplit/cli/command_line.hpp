@@ -22,6 +22,7 @@ struct CommandLine {
     std::uintmax_t max_size_kib{100};
     ReportFormat report_format{ReportFormat::text};
     bool show_help{false};
+    bool show_version{false};
     std::string error;
 
     [[nodiscard]] explicit operator bool() const noexcept { return error.empty(); }

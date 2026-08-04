@@ -19,6 +19,11 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    if (command.show_version) {
+        std::cout << "CodeSplit " << CODESPLIT_VERSION << '\n';
+        return 0;
+    }
+
     constexpr std::uintmax_t bytes_per_kib = 1024U;
     const auto size_limit_bytes = command.max_size_kib * bytes_per_kib;
     const auto analysis =

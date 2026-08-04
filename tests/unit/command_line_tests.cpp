@@ -40,6 +40,13 @@ void parses_analyze_command() {
            "default report format should be text");
 }
 
+void parses_version_option() {
+    const auto command = parse({"codesplit", "--version"});
+
+    expect(static_cast<bool>(command), "version option should be valid");
+    expect(command.show_version, "version option should request version output");
+}
+
 void parses_build_path() {
     const auto command = parse({"codesplit", "analyze", "large.cpp", "--build-path", "out/debug"});
 
@@ -104,6 +111,7 @@ void rejects_missing_build_path_value() {
 
 int main() {
     parses_analyze_command();
+    parses_version_option();
     parses_build_path();
     parses_maximum_size();
     rejects_invalid_maximum_sizes();
