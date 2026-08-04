@@ -19,6 +19,20 @@ bool parse_max_size(std::string_view argument, std::uintmax_t& value) {
            value > 0 && value <= maximum_kib;
 }
 
+bool parse_report_format(std::string_view argument, ReportFormat& format) {
+    if (argument == "text") {
+        format = ReportFormat::text;
+        return true;
+    }
+
+    if (argument == "json") {
+        format = ReportFormat::json;
+        return true;
+    }
+
+    return false;
+}
+
 } // namespace
 
 CommandLine parse_command_line(int argc, char* argv[]) {
@@ -74,6 +88,21 @@ CommandLine parse_command_line(int argc, char* argv[]) {
             continue;
         }
 
+        if (argument == "--format") {
+            if (++index >= argc) {
+                result.error = "Missing value for --format.";
+                return result;
+            }
+
+            const std::string_view value{argv[index]};
+            if (!parse_report_format(value, result.report_format)) {
+                result.error = "Invalid value for --format: " + std::string{value};
+                return result;
+            }
+
+            continue;
+        }
+
         result.error = "Unknown option: " + std::string{argument};
         return result;
     }
@@ -83,7 +112,8 @@ CommandLine parse_command_line(int argc, char* argv[]) {
 
 std::string usage() {
     return "Usage:\n"
-           "  codesplit analyze <file> [--build-path <directory>] [--max-size-kb <number>]\n"
+           "  codesplit analyze <file> [--build-path <directory>] [--max-size-kb <number>] "
+           "[--format <text|json>]\n"
            "  codesplit --help\n";
 }
 

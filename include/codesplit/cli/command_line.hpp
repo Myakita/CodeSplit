@@ -10,11 +10,17 @@ enum class Operation {
     analyze,
 };
 
+enum class ReportFormat {
+    text,
+    json,
+};
+
 struct CommandLine {
     Operation operation{Operation::analyze};
     std::filesystem::path input_path;
     std::filesystem::path build_path{"build"};
     std::uintmax_t max_size_kib{100};
+    ReportFormat report_format{ReportFormat::text};
     bool show_help{false};
     std::string error;
 

@@ -1,5 +1,6 @@
 #include "codesplit/analysis/source_file.hpp"
 #include "codesplit/cli/command_line.hpp"
+#include "codesplit/reporting/json_report.hpp"
 #include "codesplit/reporting/text_report.hpp"
 
 #include <iostream>
@@ -27,6 +28,11 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << codesplit::reporting::format_text_report(analysis.info, command.max_size_kib);
+    if (command.report_format == codesplit::cli::ReportFormat::json) {
+        std::cout << codesplit::reporting::format_json_report(analysis.info, command.max_size_kib);
+    } else {
+        std::cout << codesplit::reporting::format_text_report(analysis.info, command.max_size_kib);
+    }
+
     return 0;
 }

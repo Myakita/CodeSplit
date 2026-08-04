@@ -36,6 +36,8 @@ void parses_analyze_command() {
     expect(command.input_path == "src/large.cpp", "input path should be preserved");
     expect(command.build_path == "build", "default build path should be build");
     expect(command.max_size_kib == 100, "default size limit should be 100 KiB");
+    expect(command.report_format == codesplit::cli::ReportFormat::text,
+           "default report format should be text");
 }
 
 void parses_build_path() {
@@ -67,6 +69,22 @@ void rejects_invalid_maximum_sizes() {
     expect(!overflow, "maximum size that overflows bytes should be rejected");
 }
 
+void parses_report_format() {
+    const auto command = parse({"codesplit", "analyze", "large.cpp", "--format", "json"});
+
+    expect(static_cast<bool>(command), "JSON report format should be valid");
+    expect(command.report_format == codesplit::cli::ReportFormat::json,
+           "report format should be JSON");
+}
+
+void rejects_invalid_report_formats() {
+    const auto unknown = parse({"codesplit", "analyze", "large.cpp", "--format", "xml"});
+    const auto missing = parse({"codesplit", "analyze", "large.cpp", "--format"});
+
+    expect(!unknown, "unknown report format should be rejected");
+    expect(!missing, "missing report format should be rejected");
+}
+
 void rejects_unknown_command() {
     const auto command = parse({"codesplit", "split", "large.cpp"});
 
@@ -89,6 +107,8 @@ int main() {
     parses_build_path();
     parses_maximum_size();
     rejects_invalid_maximum_sizes();
+    parses_report_format();
+    rejects_invalid_report_formats();
     rejects_unknown_command();
     rejects_missing_build_path_value();
 
