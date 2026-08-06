@@ -66,9 +66,11 @@ if(CODESPLIT_ENABLE_CLANG AND LLVM_FOUND AND Clang_FOUND)
     target_link_libraries(codesplit_clang PRIVATE clangTooling)
     target_include_directories(codesplit_clang SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
     set(CODESPLIT_HAS_CLANG_TOOLING ON)
+    message(STATUS "CodeSplit Clang LibTooling integration enabled")
 else()
     add_library(codesplit_clang src/clang/unavailable_compilation_database.cpp)
     set(CODESPLIT_HAS_CLANG_TOOLING OFF)
+    message(STATUS "CodeSplit Clang LibTooling integration unavailable")
 endif()
 
 target_include_directories(codesplit_clang
