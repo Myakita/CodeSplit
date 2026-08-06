@@ -69,7 +69,10 @@ if(CODESPLIT_ENABLE_CLANG AND LLVM_FOUND AND Clang_FOUND)
         )
     endif()
 
-    add_library(codesplit_clang src/clang/compilation_database.cpp)
+    add_library(codesplit_clang
+        src/clang/callable_inventory.cpp
+        src/clang/compilation_database.cpp
+    )
     target_link_libraries(codesplit_clang PRIVATE clangTooling)
     target_include_directories(codesplit_clang SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
     set(CODESPLIT_HAS_CLANG_TOOLING ON)
@@ -81,7 +84,10 @@ else()
         unset(CMAKE_MSVC_RUNTIME_LIBRARY)
     endif()
 
-    add_library(codesplit_clang src/clang/unavailable_compilation_database.cpp)
+    add_library(codesplit_clang
+        src/clang/unavailable_callable_inventory.cpp
+        src/clang/unavailable_compilation_database.cpp
+    )
     set(CODESPLIT_HAS_CLANG_TOOLING OFF)
     message(STATUS "CodeSplit Clang LibTooling integration unavailable")
 endif()

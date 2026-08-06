@@ -18,10 +18,20 @@ if(CODESPLIT_HAS_CLANG_TOOLING)
     add_executable(codesplit_compilation_database_tests unit/compilation_database_tests.cpp)
     target_link_libraries(codesplit_compilation_database_tests PRIVATE codesplit_clang)
     add_test(NAME codesplit_compilation_database_tests COMMAND codesplit_compilation_database_tests)
+
+    add_executable(codesplit_callable_inventory_tests unit/callable_inventory_tests.cpp)
+    target_link_libraries(codesplit_callable_inventory_tests PRIVATE codesplit_clang)
+    add_test(NAME codesplit_callable_inventory_tests COMMAND codesplit_callable_inventory_tests)
 else()
     add_executable(codesplit_compilation_database_tests
         unit/unavailable_compilation_database_tests.cpp
     )
     target_link_libraries(codesplit_compilation_database_tests PRIVATE codesplit_clang)
     add_test(NAME codesplit_compilation_database_tests COMMAND codesplit_compilation_database_tests)
+
+    add_executable(codesplit_callable_inventory_tests
+        unit/unavailable_callable_inventory_tests.cpp
+    )
+    target_link_libraries(codesplit_callable_inventory_tests PRIVATE codesplit_clang)
+    add_test(NAME codesplit_callable_inventory_tests COMMAND codesplit_callable_inventory_tests)
 endif()

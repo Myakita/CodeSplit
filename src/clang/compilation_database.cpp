@@ -1,17 +1,10 @@
 #include "codesplit/analysis/compilation_database.hpp"
+#include "compilation_database_internal.hpp"
 
-#include <clang/Tooling/CompilationDatabase.h>
-
-#include <memory>
 #include <system_error>
 
-namespace codesplit::analysis {
+namespace codesplit::analysis::detail {
 namespace {
-
-std::string path_to_utf8(const std::filesystem::path& path) {
-    const auto encoded = path.generic_u8string();
-    return {reinterpret_cast<const char*>(encoded.data()), encoded.size()};
-}
 
 std::filesystem::path absolute_normalized(const std::filesystem::path& path) {
     std::error_code error;
@@ -42,9 +35,14 @@ bool refers_to_same_file(const std::filesystem::path& first, const std::filesyst
 
 } // namespace
 
-CompilationCommandResult load_compilation_command(const std::filesystem::path& build_path,
+std::string path_to_utf8(const std::filesystem::path& path) {
+    const auto encoded = path.generic_u8string();
+    return {reinterpret_cast<const char*>(encoded.data()), encoded.size()};
+}
+
+CompilationCommandLookup find_compilation_command(const std::filesystem::path& build_path,
                                                   const std::filesystem::path& source_path) {
-    CompilationCommandResult result;
+    CompilationCommandLookup result;
     std::string database_error;
     auto database = clang::tooling::CompilationDatabase::loadFromDirectory(path_to_utf8(build_path),
                                                                            database_error);
@@ -60,13 +58,32 @@ CompilationCommandResult load_compilation_command(const std::filesystem::path& b
             continue;
         }
 
-        result.command.working_directory = std::filesystem::path{command.Directory};
-        result.command.arguments = command.CommandLine;
+        result.command = command;
         return result;
     }
 
     result.error = "No compilation command found for: " + path_to_utf8(source_path);
     return result;
+}
+
+} // namespace codesplit::analysis::detail
+
+namespace codesplit::analysis {
+
+CompilationCommandResult load_compilation_command(const std::filesystem::path& build_path,
+                                                  const std::filesystem::path& source_path) {
+    const auto lookup = detail::find_compilation_command(build_path, source_path);
+    if (!lookup) {
+        return {.error = lookup.error};
+    }
+
+    return {
+        .command =
+            {
+                .working_directory = std::filesystem::path{lookup.command.Directory},
+                .arguments = lookup.command.CommandLine,
+            },
+    };
 }
 
 } // namespace codesplit::analysis
