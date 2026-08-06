@@ -1,3 +1,4 @@
+#include "codesplit/analysis/compilation_database.hpp"
 #include "codesplit/analysis/source_file.hpp"
 #include "codesplit/cli/command_line.hpp"
 #include "codesplit/reporting/json_report.hpp"
@@ -33,10 +34,15 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    const auto compilation =
+        codesplit::analysis::load_compilation_command(command.build_path, command.input_path);
+
     if (command.report_format == codesplit::cli::ReportFormat::json) {
-        std::cout << codesplit::reporting::format_json_report(analysis.info, command.max_size_kib);
+        std::cout << codesplit::reporting::format_json_report(analysis.info, command.max_size_kib,
+                                                              compilation);
     } else {
-        std::cout << codesplit::reporting::format_text_report(analysis.info, command.max_size_kib);
+        std::cout << codesplit::reporting::format_text_report(analysis.info, command.max_size_kib,
+                                                              compilation);
     }
 
     return 0;

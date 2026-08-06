@@ -55,15 +55,27 @@ std::string escape_json_string(std::string_view value) {
 
 } // namespace
 
-std::string format_json_report(const analysis::SourceFileInfo& info,
-                               std::uintmax_t size_limit_kib) {
+std::string format_json_report(const analysis::SourceFileInfo& info, std::uintmax_t size_limit_kib,
+                               const analysis::CompilationCommandResult& compilation) {
     std::ostringstream report;
     report << "{\n";
     report << "  \"file\": \"" << escape_json_string(path_to_utf8(info.path)) << "\",\n";
     report << "  \"size_bytes\": " << info.size_bytes << ",\n";
     report << "  \"line_count\": " << info.line_count << ",\n";
     report << "  \"size_limit_kib\": " << size_limit_kib << ",\n";
-    report << "  \"exceeds_size_limit\": " << (info.exceeds_size_limit ? "true" : "false") << '\n';
+    report << "  \"exceeds_size_limit\": " << (info.exceeds_size_limit ? "true" : "false") << ",\n";
+    report << "  \"compilation_command\": {\n";
+    report << "    \"available\": " << (compilation ? "true" : "false") << ",\n";
+    if (compilation) {
+        report << "    \"working_directory\": \""
+               << escape_json_string(path_to_utf8(compilation.command.working_directory))
+               << "\",\n";
+        report << "    \"error\": null\n";
+    } else {
+        report << "    \"working_directory\": null,\n";
+        report << "    \"error\": \"" << escape_json_string(compilation.error) << "\"\n";
+    }
+    report << "  }\n";
     report << "}\n";
     return report.str();
 }

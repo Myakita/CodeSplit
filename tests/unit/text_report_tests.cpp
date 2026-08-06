@@ -23,14 +23,18 @@ void formats_source_file_information() {
         .line_count = 2048,
         .exceeds_size_limit = true,
     };
+    const codesplit::analysis::CompilationCommandResult compilation{
+        .command = {.working_directory = "build"},
+    };
 
-    const auto report = codesplit::reporting::format_text_report(info, 100);
+    const auto report = codesplit::reporting::format_text_report(info, 100, compilation);
 
     expect_equal(report,
                  "File: src/large.cpp\n"
                  "Size: 153600 bytes\n"
                  "Lines: 2048\n"
-                 "Exceeds 100 KiB: yes\n",
+                 "Exceeds 100 KiB: yes\n"
+                 "Compilation command: available\n",
                  "text report should contain stable source-file information");
 }
 
@@ -41,14 +45,19 @@ void formats_file_within_limit() {
         .line_count = 10,
         .exceeds_size_limit = false,
     };
+    const codesplit::analysis::CompilationCommandResult compilation{
+        .error = "compile_commands.json was not found",
+    };
 
-    const auto report = codesplit::reporting::format_text_report(info, 1);
+    const auto report = codesplit::reporting::format_text_report(info, 1, compilation);
 
     expect_equal(report,
                  "File: small.cpp\n"
                  "Size: 512 bytes\n"
                  "Lines: 10\n"
-                 "Exceeds 1 KiB: no\n",
+                 "Exceeds 1 KiB: no\n"
+                 "Compilation command: unavailable\n"
+                 "Reason: compile_commands.json was not found\n",
                  "text report should show a file within the limit");
 }
 

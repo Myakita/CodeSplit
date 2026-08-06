@@ -23,8 +23,11 @@ void formats_source_file_as_json() {
         .line_count = 2048,
         .exceeds_size_limit = true,
     };
+    const codesplit::analysis::CompilationCommandResult compilation{
+        .command = {.working_directory = "build"},
+    };
 
-    const auto report = codesplit::reporting::format_json_report(info, 100);
+    const auto report = codesplit::reporting::format_json_report(info, 100, compilation);
 
     expect_equal(report,
                  "{\n"
@@ -32,7 +35,12 @@ void formats_source_file_as_json() {
                  "  \"size_bytes\": 153600,\n"
                  "  \"line_count\": 2048,\n"
                  "  \"size_limit_kib\": 100,\n"
-                 "  \"exceeds_size_limit\": true\n"
+                 "  \"exceeds_size_limit\": true,\n"
+                 "  \"compilation_command\": {\n"
+                 "    \"available\": true,\n"
+                 "    \"working_directory\": \"build\",\n"
+                 "    \"error\": null\n"
+                 "  }\n"
                  "}\n",
                  "JSON report should contain stable source-file information");
 }
@@ -44,8 +52,11 @@ void escapes_special_characters_in_path() {
         .line_count = 10,
         .exceeds_size_limit = false,
     };
+    const codesplit::analysis::CompilationCommandResult compilation{
+        .error = "missing \"database\"",
+    };
 
-    const auto report = codesplit::reporting::format_json_report(info, 1);
+    const auto report = codesplit::reporting::format_json_report(info, 1, compilation);
 
     expect_equal(report,
                  "{\n"
@@ -53,7 +64,12 @@ void escapes_special_characters_in_path() {
                  "  \"size_bytes\": 512,\n"
                  "  \"line_count\": 10,\n"
                  "  \"size_limit_kib\": 1,\n"
-                 "  \"exceeds_size_limit\": false\n"
+                 "  \"exceeds_size_limit\": false,\n"
+                 "  \"compilation_command\": {\n"
+                 "    \"available\": false,\n"
+                 "    \"working_directory\": null,\n"
+                 "    \"error\": \"missing \\\"database\\\"\"\n"
+                 "  }\n"
                  "}\n",
                  "JSON report should escape special path characters");
 }
