@@ -65,7 +65,7 @@ class TemporaryProject {
 
 void loads_command_for_source_file() {
     const TemporaryProject project;
-    project.write_compilation_database(project.source_path());
+    project.write_compilation_database("main.cpp");
 
     const auto result =
         codesplit::analysis::load_compilation_command(project.build_path(), project.source_path());

@@ -34,6 +34,12 @@ std::filesystem::path source_path_for(const clang::tooling::CompileCommand& comm
     return absolute_normalized(std::filesystem::path{command.Directory} / file);
 }
 
+bool refers_to_same_file(const std::filesystem::path& first, const std::filesystem::path& second) {
+    std::error_code error;
+    const auto equivalent = std::filesystem::equivalent(first, second, error);
+    return error ? absolute_normalized(first) == absolute_normalized(second) : equivalent;
+}
+
 } // namespace
 
 CompilationCommandResult load_compilation_command(const std::filesystem::path& build_path,
@@ -50,7 +56,7 @@ CompilationCommandResult load_compilation_command(const std::filesystem::path& b
 
     const auto normalized_source_path = absolute_normalized(source_path);
     for (const auto& command : database->getAllCompileCommands()) {
-        if (source_path_for(command) != normalized_source_path) {
+        if (!refers_to_same_file(source_path_for(command), normalized_source_path)) {
             continue;
         }
 
