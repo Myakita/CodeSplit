@@ -1,4 +1,4 @@
-#include "codesplit/analysis/compilation_database.hpp"
+#include "codesplit/analysis/callable_inventory.hpp"
 #include "codesplit/analysis/source_file.hpp"
 #include "codesplit/cli/command_line.hpp"
 #include "codesplit/reporting/json_report.hpp"
@@ -34,15 +34,15 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    const auto compilation =
-        codesplit::analysis::load_compilation_command(command.build_path, command.input_path);
+    const auto inventory = codesplit::analysis::inventory_callables(
+        command.build_path, command.input_path, size_limit_bytes);
 
     if (command.report_format == codesplit::cli::ReportFormat::json) {
         std::cout << codesplit::reporting::format_json_report(analysis.info, command.max_size_kib,
-                                                              compilation);
+                                                              inventory);
     } else {
         std::cout << codesplit::reporting::format_text_report(analysis.info, command.max_size_kib,
-                                                              compilation);
+                                                              inventory);
     }
 
     return 0;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "codesplit/analysis/compilation_database.hpp"
+#include "codesplit/analysis/callable_inventory.hpp"
 #include "codesplit/analysis/source_file.hpp"
 
 #include <cstdint>
@@ -10,6 +10,6 @@ namespace codesplit::reporting {
 
 [[nodiscard]] std::string format_json_report(const analysis::SourceFileInfo& info,
                                              std::uintmax_t size_limit_kib,
-                                             const analysis::CompilationCommandResult& compilation);
+                                             const analysis::CallableInventoryResult& inventory);
 
 } // namespace codesplit::reporting

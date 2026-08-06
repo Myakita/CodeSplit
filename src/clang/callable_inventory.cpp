@@ -182,6 +182,7 @@ CallableInventoryResult inventory_callables(const std::filesystem::path& build_p
     clang::tooling::ClangTool tool{database, {detail::path_to_utf8(source_path)}};
     CallableActionFactory action_factory{size_limit_bytes, result.callables};
     if (tool.run(&action_factory) != 0) {
+        result.callables.clear();
         result.error = "Clang frontend failed to analyze: " + detail::path_to_utf8(source_path);
     }
 

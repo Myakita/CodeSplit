@@ -23,18 +23,45 @@ void formats_source_file_information() {
         .line_count = 2048,
         .exceeds_size_limit = true,
     };
-    const codesplit::analysis::CompilationCommandResult compilation{
-        .command = {.working_directory = "build"},
+    const codesplit::analysis::CallableInventoryResult inventory{
+        .compilation = {.command = {.working_directory = "build"}},
+        .callables =
+            {
+                {
+                    .kind = codesplit::analysis::CallableKind::free_function,
+                    .qualified_name = "sample::helper",
+                    .begin_offset = 20,
+                    .end_offset = 140,
+                    .size_bytes = 120,
+                    .begin_line = 3,
+                    .end_line = 5,
+                    .constraints = {codesplit::analysis::CallableConstraint::exceeds_size_limit},
+                },
+                {
+                    .kind = codesplit::analysis::CallableKind::method,
+                    .qualified_name = "sample::Worker::run",
+                    .begin_offset = 160,
+                    .end_offset = 220,
+                    .size_bytes = 60,
+                    .begin_line = 8,
+                    .end_line = 10,
+                },
+            },
     };
 
-    const auto report = codesplit::reporting::format_text_report(info, 100, compilation);
+    const auto report = codesplit::reporting::format_text_report(info, 100, inventory);
 
     expect_equal(report,
                  "File: src/large.cpp\n"
                  "Size: 153600 bytes\n"
                  "Lines: 2048\n"
                  "Exceeds 100 KiB: yes\n"
-                 "Compilation command: available\n",
+                 "Compilation command: available\n"
+                 "Callable inventory: available\n"
+                 "Callable definitions: 2\n"
+                 "- free function sample::helper: lines 3-5, 120 bytes"
+                 " [exceeds_size_limit]\n"
+                 "- method sample::Worker::run: lines 8-10, 60 bytes\n",
                  "text report should contain stable source-file information");
 }
 
@@ -45,11 +72,12 @@ void formats_file_within_limit() {
         .line_count = 10,
         .exceeds_size_limit = false,
     };
-    const codesplit::analysis::CompilationCommandResult compilation{
+    const codesplit::analysis::CallableInventoryResult inventory{
+        .compilation = {.error = "compile_commands.json was not found"},
         .error = "compile_commands.json was not found",
     };
 
-    const auto report = codesplit::reporting::format_text_report(info, 1, compilation);
+    const auto report = codesplit::reporting::format_text_report(info, 1, inventory);
 
     expect_equal(report,
                  "File: small.cpp\n"
@@ -57,7 +85,8 @@ void formats_file_within_limit() {
                  "Lines: 10\n"
                  "Exceeds 1 KiB: no\n"
                  "Compilation command: unavailable\n"
-                 "Reason: compile_commands.json was not found\n",
+                 "Reason: compile_commands.json was not found\n"
+                 "Callable inventory: unavailable\n",
                  "text report should show a file within the limit");
 }
 

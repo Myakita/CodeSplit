@@ -23,11 +23,24 @@ void formats_source_file_as_json() {
         .line_count = 2048,
         .exceeds_size_limit = true,
     };
-    const codesplit::analysis::CompilationCommandResult compilation{
-        .command = {.working_directory = "build"},
+    const codesplit::analysis::CallableInventoryResult inventory{
+        .compilation = {.command = {.working_directory = "build"}},
+        .callables =
+            {
+                {
+                    .kind = codesplit::analysis::CallableKind::free_function,
+                    .qualified_name = "sample::helper",
+                    .begin_offset = 20,
+                    .end_offset = 140,
+                    .size_bytes = 120,
+                    .begin_line = 3,
+                    .end_line = 5,
+                    .constraints = {codesplit::analysis::CallableConstraint::exceeds_size_limit},
+                },
+            },
     };
 
-    const auto report = codesplit::reporting::format_json_report(info, 100, compilation);
+    const auto report = codesplit::reporting::format_json_report(info, 100, inventory);
 
     expect_equal(report,
                  "{\n"
@@ -40,6 +53,22 @@ void formats_source_file_as_json() {
                  "    \"available\": true,\n"
                  "    \"working_directory\": \"build\",\n"
                  "    \"error\": null\n"
+                 "  },\n"
+                 "  \"callable_inventory\": {\n"
+                 "    \"available\": true,\n"
+                 "    \"error\": null,\n"
+                 "    \"definitions\": [\n"
+                 "      {\n"
+                 "        \"kind\": \"free_function\",\n"
+                 "        \"qualified_name\": \"sample::helper\",\n"
+                 "        \"begin_offset\": 20,\n"
+                 "        \"end_offset\": 140,\n"
+                 "        \"size_bytes\": 120,\n"
+                 "        \"begin_line\": 3,\n"
+                 "        \"end_line\": 5,\n"
+                 "        \"constraints\": [\"exceeds_size_limit\"]\n"
+                 "      }\n"
+                 "    ]\n"
                  "  }\n"
                  "}\n",
                  "JSON report should contain stable source-file information");
@@ -52,11 +81,12 @@ void escapes_special_characters_in_path() {
         .line_count = 10,
         .exceeds_size_limit = false,
     };
-    const codesplit::analysis::CompilationCommandResult compilation{
+    const codesplit::analysis::CallableInventoryResult inventory{
+        .compilation = {.error = "missing \"database\""},
         .error = "missing \"database\"",
     };
 
-    const auto report = codesplit::reporting::format_json_report(info, 1, compilation);
+    const auto report = codesplit::reporting::format_json_report(info, 1, inventory);
 
     expect_equal(report,
                  "{\n"
@@ -69,6 +99,11 @@ void escapes_special_characters_in_path() {
                  "    \"available\": false,\n"
                  "    \"working_directory\": null,\n"
                  "    \"error\": \"missing \\\"database\\\"\"\n"
+                 "  },\n"
+                 "  \"callable_inventory\": {\n"
+                 "    \"available\": false,\n"
+                 "    \"error\": \"missing \\\"database\\\"\",\n"
+                 "    \"definitions\": []\n"
                  "  }\n"
                  "}\n",
                  "JSON report should escape special path characters");

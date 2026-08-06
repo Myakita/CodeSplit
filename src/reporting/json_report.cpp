@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <string_view>
+#include <vector>
 
 namespace codesplit::reporting {
 namespace {
@@ -53,10 +54,60 @@ std::string escape_json_string(std::string_view value) {
     return escaped;
 }
 
+std::string_view callable_kind_name(analysis::CallableKind kind) {
+    switch (kind) {
+    case analysis::CallableKind::free_function:
+        return "free_function";
+    case analysis::CallableKind::method:
+        return "method";
+    }
+    return "unknown";
+}
+
+std::string_view constraint_name(analysis::CallableConstraint constraint) {
+    switch (constraint) {
+    case analysis::CallableConstraint::macro_expansion:
+        return "macro_expansion";
+    case analysis::CallableConstraint::source_range_unavailable:
+        return "source_range_unavailable";
+    case analysis::CallableConstraint::exceeds_size_limit:
+        return "exceeds_size_limit";
+    }
+    return "unknown";
+}
+
+void append_constraints(std::ostringstream& report,
+                        const std::vector<analysis::CallableConstraint>& constraints) {
+    report << '[';
+    for (std::size_t index = 0; index < constraints.size(); ++index) {
+        if (index != 0) {
+            report << ", ";
+        }
+        report << '"' << constraint_name(constraints[index]) << '"';
+    }
+    report << ']';
+}
+
+void append_callable(std::ostringstream& report, const analysis::CallableDefinition& callable,
+                     bool is_last) {
+    report << "      {\n";
+    report << "        \"kind\": \"" << callable_kind_name(callable.kind) << "\",\n";
+    report << "        \"qualified_name\": \"" << escape_json_string(callable.qualified_name)
+           << "\",\n";
+    report << "        \"begin_offset\": " << callable.begin_offset << ",\n";
+    report << "        \"end_offset\": " << callable.end_offset << ",\n";
+    report << "        \"size_bytes\": " << callable.size_bytes << ",\n";
+    report << "        \"begin_line\": " << callable.begin_line << ",\n";
+    report << "        \"end_line\": " << callable.end_line << ",\n";
+    report << "        \"constraints\": ";
+    append_constraints(report, callable.constraints);
+    report << "\n      }" << (is_last ? "\n" : ",\n");
+}
+
 } // namespace
 
 std::string format_json_report(const analysis::SourceFileInfo& info, std::uintmax_t size_limit_kib,
-                               const analysis::CompilationCommandResult& compilation) {
+                               const analysis::CallableInventoryResult& inventory) {
     std::ostringstream report;
     report << "{\n";
     report << "  \"file\": \"" << escape_json_string(path_to_utf8(info.path)) << "\",\n";
@@ -65,15 +116,34 @@ std::string format_json_report(const analysis::SourceFileInfo& info, std::uintma
     report << "  \"size_limit_kib\": " << size_limit_kib << ",\n";
     report << "  \"exceeds_size_limit\": " << (info.exceeds_size_limit ? "true" : "false") << ",\n";
     report << "  \"compilation_command\": {\n";
-    report << "    \"available\": " << (compilation ? "true" : "false") << ",\n";
-    if (compilation) {
+    report << "    \"available\": " << (inventory.compilation ? "true" : "false") << ",\n";
+    if (inventory.compilation) {
         report << "    \"working_directory\": \""
-               << escape_json_string(path_to_utf8(compilation.command.working_directory))
+               << escape_json_string(path_to_utf8(inventory.compilation.command.working_directory))
                << "\",\n";
         report << "    \"error\": null\n";
     } else {
         report << "    \"working_directory\": null,\n";
-        report << "    \"error\": \"" << escape_json_string(compilation.error) << "\"\n";
+        report << "    \"error\": \"" << escape_json_string(inventory.compilation.error) << "\"\n";
+    }
+    report << "  },\n";
+    report << "  \"callable_inventory\": {\n";
+    report << "    \"available\": " << (inventory ? "true" : "false") << ",\n";
+    if (inventory) {
+        report << "    \"error\": null,\n";
+    } else {
+        report << "    \"error\": \"" << escape_json_string(inventory.error) << "\",\n";
+    }
+    report << "    \"definitions\": ";
+    if (inventory.callables.empty()) {
+        report << "[]\n";
+    } else {
+        report << "[\n";
+        for (std::size_t index = 0; index < inventory.callables.size(); ++index) {
+            append_callable(report, inventory.callables[index],
+                            index + 1 == inventory.callables.size());
+        }
+        report << "    ]\n";
     }
     report << "  }\n";
     report << "}\n";
