@@ -40,6 +40,7 @@ class TemporaryProject {
         source << "namespace sample {\n"
                   "int declaration(int);\n"
                   "int helper(int value) { return value * 2; }\n"
+                  "int unavailable(int) = delete;\n"
                   "class Worker {\n"
                   "public:\n"
                   "    int run(int);\n"
@@ -95,6 +96,8 @@ void inventories_source_definitions() {
     expect(static_cast<bool>(result.compilation), "used compilation command should be returned");
     expect(find_callable(result, "sample::declaration") == nullptr,
            "declarations without a body should be excluded");
+    expect(find_callable(result, "sample::unavailable") == nullptr,
+           "deleted definitions without a body should be excluded");
     expect(find_callable(result, "sample::Worker::inline_method") == nullptr,
            "methods defined inside a class should be excluded from this slice");
 

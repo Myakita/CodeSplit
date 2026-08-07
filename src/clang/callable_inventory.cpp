@@ -39,13 +39,18 @@ class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
         }
 
         const auto declaration_begin = declaration->getBeginLoc();
-        const auto body_end = declaration->getBody()->getEndLoc();
         const auto begin = source_manager_.getExpansionLoc(declaration_begin);
-        const auto expanded_end = source_manager_.getExpansionLoc(body_end);
         if (!begin.isValid() || !source_manager_.isWrittenInMainFile(begin)) {
             return true;
         }
 
+        const auto* body = declaration->getBody();
+        if (body == nullptr) {
+            return true;
+        }
+
+        const auto body_end = body->getEndLoc();
+        const auto expanded_end = source_manager_.getExpansionLoc(body_end);
         CallableDefinition callable{
             .kind = method == nullptr ? CallableKind::free_function : CallableKind::method,
             .qualified_name = declaration->getQualifiedNameAsString(),
