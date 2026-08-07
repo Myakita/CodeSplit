@@ -12,6 +12,8 @@ namespace codesplit::analysis {
 
 enum class CallableKind { free_function, method };
 
+enum class FrontendDiagnosticSeverity { note, remark, warning, error, fatal };
+
 enum class CallableConstraint {
     macro_expansion,
     source_range_unavailable,
@@ -24,6 +26,14 @@ struct SourceRange {
     std::uintmax_t end_offset = 0;
     std::uintmax_t begin_line = 0;
     std::uintmax_t end_line = 0;
+};
+
+struct FrontendDiagnostic {
+    FrontendDiagnosticSeverity severity = FrontendDiagnosticSeverity::note;
+    std::string message;
+    std::filesystem::path path;
+    std::uintmax_t line = 0;
+    std::uintmax_t column = 0;
 };
 
 struct CallableDefinition {
@@ -43,6 +53,7 @@ struct CallableDefinition {
 struct CallableInventoryResult {
     CompilationCommandResult compilation;
     std::vector<CallableDefinition> callables;
+    std::vector<FrontendDiagnostic> diagnostics;
     std::string error;
 
     [[nodiscard]] explicit operator bool() const noexcept { return error.empty(); }

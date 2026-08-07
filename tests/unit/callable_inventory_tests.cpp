@@ -56,7 +56,8 @@ class TemporaryProject {
                   "int Worker::run(double value) { return static_cast<int>(value); }\n"
                   "}\n"
                   "#define DEFINE_FUNCTION(name) int name() { return 1; }\n"
-                  "DEFINE_FUNCTION(generated)\n";
+                  "DEFINE_FUNCTION(generated)\n"
+                  "#warning CodeSplit diagnostic test\n";
 
         std::ofstream database{build_path() / "compile_commands.json"};
         database << "[\n"
@@ -82,6 +83,11 @@ class TemporaryProject {
     [[nodiscard]] std::filesystem::path header_path() const { return root_ / "worker.hpp"; }
     [[nodiscard]] std::filesystem::path build_path() const { return root_ / "build"; }
 
+    void replace_source(const std::string& content) const {
+        std::ofstream source{source_path()};
+        source << content;
+    }
+
   private:
     std::filesystem::path root_;
 };
@@ -102,6 +108,17 @@ find_callable_at_line(const codesplit::analysis::CallableInventoryResult& result
     return callable == result.callables.end() ? nullptr : &*callable;
 }
 
+const codesplit::analysis::FrontendDiagnostic*
+find_diagnostic(const codesplit::analysis::CallableInventoryResult& result,
+                codesplit::analysis::FrontendDiagnosticSeverity severity,
+                const std::string& message_fragment) {
+    const auto diagnostic = std::ranges::find_if(result.diagnostics, [&](const auto& candidate) {
+        return candidate.severity == severity &&
+               candidate.message.find(message_fragment) != std::string::npos;
+    });
+    return diagnostic == result.diagnostics.end() ? nullptr : &*diagnostic;
+}
+
 void inventories_source_definitions() {
     const TemporaryProject project;
     constexpr std::uintmax_t size_limit_bytes = 32;
@@ -111,6 +128,15 @@ void inventories_source_definitions() {
 
     expect(static_cast<bool>(result), "valid translation unit should be inventoried");
     expect(static_cast<bool>(result.compilation), "used compilation command should be returned");
+    const auto* warning =
+        find_diagnostic(result, codesplit::analysis::FrontendDiagnosticSeverity::warning,
+                        "CodeSplit diagnostic test");
+    expect(warning != nullptr, "frontend warning should be retained");
+    if (warning != nullptr) {
+        expect(warning->path.filename() == project.source_path().filename(),
+               "frontend warning should retain its source path");
+        expect(warning->line == 11, "frontend warning should retain its source line");
+    }
     expect(find_callable(result, "sample::declaration") == nullptr,
            "declarations without a body should be excluded");
     expect(find_callable(result, "sample::unavailable") == nullptr,
@@ -177,6 +203,26 @@ void inventories_source_definitions() {
     }
 }
 
+void reports_frontend_errors() {
+    const TemporaryProject project;
+    project.replace_source("int broken( {\n");
+
+    const auto result =
+        codesplit::analysis::inventory_callables(project.build_path(), project.source_path(), 1024);
+
+    expect(!result, "frontend errors should fail callable inventory");
+    expect(result.callables.empty(), "partial callable inventory should be discarded");
+    const auto* error =
+        find_diagnostic(result, codesplit::analysis::FrontendDiagnosticSeverity::error, "expected");
+    expect(error != nullptr, "frontend error should be retained");
+    if (error != nullptr) {
+        expect(error->path.filename() == project.source_path().filename(),
+               "frontend error should retain its source path");
+        expect(error->line == 1, "frontend error should retain its source line");
+        expect(error->column > 0, "frontend error should retain its source column");
+    }
+}
+
 void rejects_missing_compilation_database() {
     const TemporaryProject project;
     std::filesystem::remove(project.build_path() / "compile_commands.json");
@@ -194,6 +240,7 @@ void rejects_missing_compilation_database() {
 
 int main() {
     inventories_source_definitions();
+    reports_frontend_errors();
     rejects_missing_compilation_database();
 
     if (failure_count == 0) {

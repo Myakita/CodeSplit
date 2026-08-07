@@ -4,6 +4,7 @@
 #include <clang/AST/ASTConsumer.h>
 #include <clang/AST/DeclCXX.h>
 #include <clang/AST/RecursiveASTVisitor.h>
+#include <clang/Basic/Diagnostic.h>
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Frontend/FrontendAction.h>
 #include <clang/Index/USRGeneration.h>
@@ -22,6 +23,64 @@ namespace {
 void add_constraint(CallableDefinition& callable, CallableConstraint constraint) {
     callable.constraints.push_back(constraint);
 }
+
+std::optional<FrontendDiagnosticSeverity>
+diagnostic_severity(clang::DiagnosticsEngine::Level level) {
+    switch (level) {
+    case clang::DiagnosticsEngine::Ignored:
+        return std::nullopt;
+    case clang::DiagnosticsEngine::Note:
+        return FrontendDiagnosticSeverity::note;
+    case clang::DiagnosticsEngine::Remark:
+        return FrontendDiagnosticSeverity::remark;
+    case clang::DiagnosticsEngine::Warning:
+        return FrontendDiagnosticSeverity::warning;
+    case clang::DiagnosticsEngine::Error:
+        return FrontendDiagnosticSeverity::error;
+    case clang::DiagnosticsEngine::Fatal:
+        return FrontendDiagnosticSeverity::fatal;
+    }
+    return std::nullopt;
+}
+
+class CollectingDiagnosticConsumer : public clang::DiagnosticConsumer {
+  public:
+    explicit CollectingDiagnosticConsumer(std::vector<FrontendDiagnostic>& diagnostics)
+        : diagnostics_{diagnostics} {}
+
+    void HandleDiagnostic(clang::DiagnosticsEngine::Level level,
+                          const clang::Diagnostic& information) override {
+        clang::DiagnosticConsumer::HandleDiagnostic(level, information);
+        const auto severity = diagnostic_severity(level);
+        if (!severity.has_value()) {
+            return;
+        }
+
+        llvm::SmallString<256> message;
+        information.FormatDiagnostic(message);
+        FrontendDiagnostic diagnostic{
+            .severity = *severity,
+            .message = std::string{message.begin(), message.end()},
+        };
+
+        const auto location = information.getLocation();
+        if (location.isValid()) {
+            auto& source_manager = information.getSourceManager();
+            const auto expansion_location = source_manager.getExpansionLoc(location);
+            const auto filename = source_manager.getFilename(expansion_location);
+            if (!filename.empty()) {
+                diagnostic.path = std::filesystem::path{filename.str()};
+            }
+            diagnostic.line = source_manager.getExpansionLineNumber(location);
+            diagnostic.column = source_manager.getExpansionColumnNumber(location);
+        }
+
+        diagnostics_.push_back(std::move(diagnostic));
+    }
+
+  private:
+    std::vector<FrontendDiagnostic>& diagnostics_;
+};
 
 std::string symbol_id_for(const clang::Decl& declaration) {
     llvm::SmallString<128> symbol_id;
@@ -236,6 +295,8 @@ CallableInventoryResult inventory_callables(const std::filesystem::path& build_p
     result.compilation = public_command(lookup.command);
     SingleCommandDatabase database{std::move(lookup.command)};
     clang::tooling::ClangTool tool{database, {detail::path_to_utf8(source_path)}};
+    CollectingDiagnosticConsumer diagnostic_consumer{result.diagnostics};
+    tool.setDiagnosticConsumer(&diagnostic_consumer);
     CallableActionFactory action_factory{size_limit_bytes, result.callables};
     if (tool.run(&action_factory) != 0) {
         result.callables.clear();
