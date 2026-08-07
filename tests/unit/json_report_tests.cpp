@@ -63,6 +63,20 @@ void formats_source_file_as_json() {
                     .target_symbol_id = "c:@N@sample@S@Payload",
                     .target_qualified_name = "sample::Payload",
                 },
+                {
+                    .kind = codesplit::analysis::CallableDependencyKind::global_read,
+                    .source_symbol_id = "c:@N@sample@F@caller#I#",
+                    .source_qualified_name = "sample::caller",
+                    .target_symbol_id = "c:@N@sample@counter",
+                    .target_qualified_name = "sample::counter",
+                },
+                {
+                    .kind = codesplit::analysis::CallableDependencyKind::global_write,
+                    .source_symbol_id = "c:@N@sample@F@caller#I#",
+                    .source_qualified_name = "sample::caller",
+                    .target_symbol_id = "c:@N@sample@counter",
+                    .target_qualified_name = "sample::counter",
+                },
             },
         .diagnostics =
             {
@@ -116,6 +130,20 @@ void formats_source_file_as_json() {
                  "        \"source_qualified_name\": \"sample::caller\",\n"
                  "        \"target_symbol_id\": \"c:@N@sample@S@Payload\",\n"
                  "        \"target_qualified_name\": \"sample::Payload\"\n"
+                 "      },\n"
+                 "      {\n"
+                 "        \"kind\": \"global_read\",\n"
+                 "        \"source_symbol_id\": \"c:@N@sample@F@caller#I#\",\n"
+                 "        \"source_qualified_name\": \"sample::caller\",\n"
+                 "        \"target_symbol_id\": \"c:@N@sample@counter\",\n"
+                 "        \"target_qualified_name\": \"sample::counter\"\n"
+                 "      },\n"
+                 "      {\n"
+                 "        \"kind\": \"global_write\",\n"
+                 "        \"source_symbol_id\": \"c:@N@sample@F@caller#I#\",\n"
+                 "        \"source_qualified_name\": \"sample::caller\",\n"
+                 "        \"target_symbol_id\": \"c:@N@sample@counter\",\n"
+                 "        \"target_qualified_name\": \"sample::counter\"\n"
                  "      }\n"
                  "    ],\n"
                  "    \"definitions\": [\n"

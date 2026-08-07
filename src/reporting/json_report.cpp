@@ -99,6 +99,10 @@ std::string_view dependency_kind_name(analysis::CallableDependencyKind kind) {
         return "direct_call";
     case analysis::CallableDependencyKind::type_reference:
         return "type_reference";
+    case analysis::CallableDependencyKind::global_read:
+        return "global_read";
+    case analysis::CallableDependencyKind::global_write:
+        return "global_write";
     }
     return "unknown";
 }

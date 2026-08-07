@@ -80,6 +80,20 @@ void formats_source_file_information() {
                     .target_symbol_id = "c:@N@sample@S@Payload",
                     .target_qualified_name = "sample::Payload",
                 },
+                {
+                    .kind = codesplit::analysis::CallableDependencyKind::global_read,
+                    .source_symbol_id = "c:@N@sample@S@Worker@F@run#I#",
+                    .source_qualified_name = "sample::Worker::run",
+                    .target_symbol_id = "c:@N@sample@counter",
+                    .target_qualified_name = "sample::counter",
+                },
+                {
+                    .kind = codesplit::analysis::CallableDependencyKind::global_write,
+                    .source_symbol_id = "c:@N@sample@S@Worker@F@run#I#",
+                    .source_qualified_name = "sample::Worker::run",
+                    .target_symbol_id = "c:@N@sample@counter",
+                    .target_qualified_name = "sample::counter",
+                },
             },
         .diagnostics =
             {
@@ -111,9 +125,11 @@ void formats_source_file_information() {
                  "  Symbol ID: c:@N@sample@S@Worker@F@run#I#\n"
                  "  Declaration: include/worker.hpp, lines 4-4\n"
                  "  Owning record: include/worker.hpp, lines 2-6\n"
-                 "Callable dependencies: 2\n"
+                 "Callable dependencies: 4\n"
                  "- direct call sample::Worker::run -> sample::helper\n"
-                 "- type reference sample::Worker::run -> sample::Payload\n",
+                 "- type reference sample::Worker::run -> sample::Payload\n"
+                 "- global read sample::Worker::run -> sample::counter\n"
+                 "- global write sample::Worker::run -> sample::counter\n",
                  "text report should contain stable source-file information");
 }
 
