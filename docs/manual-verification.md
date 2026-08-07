@@ -3,7 +3,7 @@
 ## Проверенное состояние
 
 - Дата: 2026-08-07
-- Коммит: `1b421ab docs: record frontend diagnostic handling`
+- Коммит: `3c2c600 feat: report callable dependencies`
 - Платформа: Windows, MSVC, Ninja, LLVM/Clang 22.1.8
 - Конфигурации: `build-llvm` и `build` с `CODESPLIT_ENABLE_CLANG=OFF`
 
@@ -23,6 +23,7 @@
 | Text и JSON | Одинаковое число определений и диагностик | 0 |
 | Out-of-line метод | Есть USR, диапазон объявления и класса | 0 |
 | Две перегрузки | Разные USR и правильные объявления | 0 |
+| Прямой вызов из out-of-line метода | Ребро содержит USR и имена точных source/target | 0 |
 | `= delete` без тела | Сущность пропущена, падения нет | 0 |
 | Определение из макроса | Сохранено ограничение `macro_expansion` | 0 |
 | `#warning` | Warning сохранён с путём, строкой и столбцом | 0 |
