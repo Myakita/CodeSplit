@@ -44,6 +44,14 @@ std::string_view diagnostic_severity_name(analysis::FrontendDiagnosticSeverity s
     return "unknown";
 }
 
+std::string_view dependency_kind_name(analysis::CallableDependencyKind kind) {
+    switch (kind) {
+    case analysis::CallableDependencyKind::direct_call:
+        return "direct call";
+    }
+    return "unknown";
+}
+
 void append_diagnostic(std::ostringstream& report, const analysis::FrontendDiagnostic& diagnostic) {
     report << "- " << diagnostic_severity_name(diagnostic.severity);
     if (!diagnostic.path.empty()) {
@@ -111,6 +119,14 @@ std::string format_text_report(const analysis::SourceFileInfo& info, std::uintma
         report << "Callable definitions: " << inventory.callables.size() << '\n';
         for (const auto& callable : inventory.callables) {
             append_callable(report, callable);
+        }
+        if (!inventory.dependencies.empty()) {
+            report << "Callable dependencies: " << inventory.dependencies.size() << '\n';
+            for (const auto& dependency : inventory.dependencies) {
+                report << "- " << dependency_kind_name(dependency.kind) << ' '
+                       << dependency.source_qualified_name << " -> "
+                       << dependency.target_qualified_name << '\n';
+            }
         }
     }
     return report.str();

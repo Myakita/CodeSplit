@@ -93,6 +93,14 @@ std::string_view diagnostic_severity_name(analysis::FrontendDiagnosticSeverity s
     return "unknown";
 }
 
+std::string_view dependency_kind_name(analysis::CallableDependencyKind kind) {
+    switch (kind) {
+    case analysis::CallableDependencyKind::direct_call:
+        return "direct_call";
+    }
+    return "unknown";
+}
+
 void append_constraints(std::ostringstream& report,
                         const std::vector<analysis::CallableConstraint>& constraints) {
     report << '[';
@@ -128,6 +136,31 @@ void append_diagnostics(std::ostringstream& report,
         report << "        \"line\": " << diagnostic.line << ",\n";
         report << "        \"column\": " << diagnostic.column << "\n";
         report << "      }" << (index + 1 == diagnostics.size() ? "\n" : ",\n");
+    }
+    report << "    ]";
+}
+
+void append_dependencies(std::ostringstream& report,
+                         const std::vector<analysis::CallableDependency>& dependencies) {
+    if (dependencies.empty()) {
+        report << "[]";
+        return;
+    }
+
+    report << "[\n";
+    for (std::size_t index = 0; index < dependencies.size(); ++index) {
+        const auto& dependency = dependencies[index];
+        report << "      {\n";
+        report << "        \"kind\": \"" << dependency_kind_name(dependency.kind) << "\",\n";
+        report << "        \"source_symbol_id\": \""
+               << escape_json_string(dependency.source_symbol_id) << "\",\n";
+        report << "        \"source_qualified_name\": \""
+               << escape_json_string(dependency.source_qualified_name) << "\",\n";
+        report << "        \"target_symbol_id\": \""
+               << escape_json_string(dependency.target_symbol_id) << "\",\n";
+        report << "        \"target_qualified_name\": \""
+               << escape_json_string(dependency.target_qualified_name) << "\"\n";
+        report << "      }" << (index + 1 == dependencies.size() ? "\n" : ",\n");
     }
     report << "    ]";
 }
@@ -208,6 +241,9 @@ std::string format_json_report(const analysis::SourceFileInfo& info, std::uintma
     }
     report << "    \"diagnostics\": ";
     append_diagnostics(report, inventory.diagnostics);
+    report << ",\n";
+    report << "    \"dependencies\": ";
+    append_dependencies(report, inventory.dependencies);
     report << ",\n";
     report << "    \"definitions\": ";
     if (inventory.callables.empty()) {

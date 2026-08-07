@@ -47,6 +47,16 @@ void formats_source_file_as_json() {
                     .constraints = {codesplit::analysis::CallableConstraint::exceeds_size_limit},
                 },
             },
+        .dependencies =
+            {
+                {
+                    .kind = codesplit::analysis::CallableDependencyKind::direct_call,
+                    .source_symbol_id = "c:@N@sample@F@caller#I#",
+                    .source_qualified_name = "sample::caller",
+                    .target_symbol_id = "c:@N@sample@F@helper#I#",
+                    .target_qualified_name = "sample::helper",
+                },
+            },
         .diagnostics =
             {
                 {
@@ -83,6 +93,15 @@ void formats_source_file_as_json() {
                  "        \"path\": \"src/large.cpp\",\n"
                  "        \"line\": 3,\n"
                  "        \"column\": 12\n"
+                 "      }\n"
+                 "    ],\n"
+                 "    \"dependencies\": [\n"
+                 "      {\n"
+                 "        \"kind\": \"direct_call\",\n"
+                 "        \"source_symbol_id\": \"c:@N@sample@F@caller#I#\",\n"
+                 "        \"source_qualified_name\": \"sample::caller\",\n"
+                 "        \"target_symbol_id\": \"c:@N@sample@F@helper#I#\",\n"
+                 "        \"target_qualified_name\": \"sample::helper\"\n"
                  "      }\n"
                  "    ],\n"
                  "    \"definitions\": [\n"
@@ -141,6 +160,7 @@ void escapes_special_characters_in_path() {
                  "    \"available\": false,\n"
                  "    \"error\": \"missing \\\"database\\\"\",\n"
                  "    \"diagnostics\": [],\n"
+                 "    \"dependencies\": [],\n"
                  "    \"definitions\": []\n"
                  "  }\n"
                  "}\n",
