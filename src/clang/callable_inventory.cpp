@@ -283,6 +283,11 @@ CompilationCommandResult public_command(const clang::tooling::CompileCommand& co
     };
 }
 
+void remove_compile_only_arguments(clang::tooling::CompileCommand& command) {
+    std::erase_if(command.CommandLine,
+                  [](const std::string& argument) { return argument == "/c" || argument == "-c"; });
+}
+
 } // namespace
 
 CallableInventoryResult inventory_callables(const std::filesystem::path& build_path,
@@ -297,6 +302,7 @@ CallableInventoryResult inventory_callables(const std::filesystem::path& build_p
     }
 
     result.compilation = public_command(lookup.command);
+    remove_compile_only_arguments(lookup.command);
     SingleCommandDatabase database{std::move(lookup.command)};
     clang::tooling::ClangTool tool{database, {detail::path_to_utf8(source_path)}};
     CollectingDiagnosticConsumer diagnostic_consumer{result.diagnostics};

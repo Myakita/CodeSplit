@@ -132,6 +132,9 @@ void inventories_source_definitions() {
         find_diagnostic(result, codesplit::analysis::FrontendDiagnosticSeverity::warning,
                         "CodeSplit diagnostic test");
     expect(warning != nullptr, "frontend warning should be retained");
+    expect(find_diagnostic(result, codesplit::analysis::FrontendDiagnosticSeverity::warning,
+                           "argument unused during compilation: '/c'") == nullptr,
+           "tooling-only compile flag should not produce a frontend warning");
     if (warning != nullptr) {
         expect(warning->path.filename() == project.source_path().filename(),
                "frontend warning should retain its source path");
