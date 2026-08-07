@@ -77,6 +77,22 @@ std::string_view constraint_name(analysis::CallableConstraint constraint) {
     return "unknown";
 }
 
+std::string_view diagnostic_severity_name(analysis::FrontendDiagnosticSeverity severity) {
+    switch (severity) {
+    case analysis::FrontendDiagnosticSeverity::note:
+        return "note";
+    case analysis::FrontendDiagnosticSeverity::remark:
+        return "remark";
+    case analysis::FrontendDiagnosticSeverity::warning:
+        return "warning";
+    case analysis::FrontendDiagnosticSeverity::error:
+        return "error";
+    case analysis::FrontendDiagnosticSeverity::fatal:
+        return "fatal";
+    }
+    return "unknown";
+}
+
 void append_constraints(std::ostringstream& report,
                         const std::vector<analysis::CallableConstraint>& constraints) {
     report << '[';
@@ -87,6 +103,33 @@ void append_constraints(std::ostringstream& report,
         report << '"' << constraint_name(constraints[index]) << '"';
     }
     report << ']';
+}
+
+void append_diagnostics(std::ostringstream& report,
+                        const std::vector<analysis::FrontendDiagnostic>& diagnostics) {
+    if (diagnostics.empty()) {
+        report << "[]";
+        return;
+    }
+
+    report << "[\n";
+    for (std::size_t index = 0; index < diagnostics.size(); ++index) {
+        const auto& diagnostic = diagnostics[index];
+        report << "      {\n";
+        report << "        \"severity\": \"" << diagnostic_severity_name(diagnostic.severity)
+               << "\",\n";
+        report << "        \"message\": \"" << escape_json_string(diagnostic.message) << "\",\n";
+        if (diagnostic.path.empty()) {
+            report << "        \"path\": null,\n";
+        } else {
+            report << "        \"path\": \"" << escape_json_string(path_to_utf8(diagnostic.path))
+                   << "\",\n";
+        }
+        report << "        \"line\": " << diagnostic.line << ",\n";
+        report << "        \"column\": " << diagnostic.column << "\n";
+        report << "      }" << (index + 1 == diagnostics.size() ? "\n" : ",\n");
+    }
+    report << "    ]";
 }
 
 void append_source_range(std::ostringstream& report,
@@ -163,6 +206,9 @@ std::string format_json_report(const analysis::SourceFileInfo& info, std::uintma
     } else {
         report << "    \"error\": \"" << escape_json_string(inventory.error) << "\",\n";
     }
+    report << "    \"diagnostics\": ";
+    append_diagnostics(report, inventory.diagnostics);
+    report << ",\n";
     report << "    \"definitions\": ";
     if (inventory.callables.empty()) {
         report << "[]\n";

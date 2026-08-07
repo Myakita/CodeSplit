@@ -47,6 +47,16 @@ void formats_source_file_as_json() {
                     .constraints = {codesplit::analysis::CallableConstraint::exceeds_size_limit},
                 },
             },
+        .diagnostics =
+            {
+                {
+                    .severity = codesplit::analysis::FrontendDiagnosticSeverity::warning,
+                    .message = "unused parameter 'value'",
+                    .path = "src/large.cpp",
+                    .line = 3,
+                    .column = 12,
+                },
+            },
     };
 
     const auto report = codesplit::reporting::format_json_report(info, 100, inventory);
@@ -66,6 +76,15 @@ void formats_source_file_as_json() {
                  "  \"callable_inventory\": {\n"
                  "    \"available\": true,\n"
                  "    \"error\": null,\n"
+                 "    \"diagnostics\": [\n"
+                 "      {\n"
+                 "        \"severity\": \"warning\",\n"
+                 "        \"message\": \"unused parameter 'value'\",\n"
+                 "        \"path\": \"src/large.cpp\",\n"
+                 "        \"line\": 3,\n"
+                 "        \"column\": 12\n"
+                 "      }\n"
+                 "    ],\n"
                  "    \"definitions\": [\n"
                  "      {\n"
                  "        \"kind\": \"free_function\",\n"
@@ -121,6 +140,7 @@ void escapes_special_characters_in_path() {
                  "  \"callable_inventory\": {\n"
                  "    \"available\": false,\n"
                  "    \"error\": \"missing \\\"database\\\"\",\n"
+                 "    \"diagnostics\": [],\n"
                  "    \"definitions\": []\n"
                  "  }\n"
                  "}\n",

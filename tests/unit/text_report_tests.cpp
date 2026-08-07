@@ -64,6 +64,16 @@ void formats_source_file_information() {
                     .end_line = 10,
                 },
             },
+        .diagnostics =
+            {
+                {
+                    .severity = codesplit::analysis::FrontendDiagnosticSeverity::warning,
+                    .message = "unused parameter 'value'",
+                    .path = "src/large.cpp",
+                    .line = 8,
+                    .column = 21,
+                },
+            },
     };
 
     const auto report = codesplit::reporting::format_text_report(info, 100, inventory);
@@ -75,6 +85,8 @@ void formats_source_file_information() {
                  "Exceeds 100 KiB: yes\n"
                  "Compilation command: available\n"
                  "Callable inventory: available\n"
+                 "Frontend diagnostics: 1\n"
+                 "- warning src/large.cpp:8:21: unused parameter 'value'\n"
                  "Callable definitions: 2\n"
                  "- free function sample::helper: lines 3-5, 120 bytes"
                  " [exceeds_size_limit]\n"

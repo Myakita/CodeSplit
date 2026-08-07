@@ -28,6 +28,31 @@ std::string_view constraint_name(analysis::CallableConstraint constraint) {
     return "unknown";
 }
 
+std::string_view diagnostic_severity_name(analysis::FrontendDiagnosticSeverity severity) {
+    switch (severity) {
+    case analysis::FrontendDiagnosticSeverity::note:
+        return "note";
+    case analysis::FrontendDiagnosticSeverity::remark:
+        return "remark";
+    case analysis::FrontendDiagnosticSeverity::warning:
+        return "warning";
+    case analysis::FrontendDiagnosticSeverity::error:
+        return "error";
+    case analysis::FrontendDiagnosticSeverity::fatal:
+        return "fatal";
+    }
+    return "unknown";
+}
+
+void append_diagnostic(std::ostringstream& report, const analysis::FrontendDiagnostic& diagnostic) {
+    report << "- " << diagnostic_severity_name(diagnostic.severity);
+    if (!diagnostic.path.empty()) {
+        report << ' ' << diagnostic.path.string() << ':' << diagnostic.line << ':'
+               << diagnostic.column;
+    }
+    report << ": " << diagnostic.message << '\n';
+}
+
 void append_callable(std::ostringstream& report, const analysis::CallableDefinition& callable) {
     report << "- " << callable_kind_name(callable.kind) << ' ' << callable.qualified_name
            << ": lines " << callable.begin_line << '-' << callable.end_line << ", "
@@ -75,6 +100,12 @@ std::string format_text_report(const analysis::SourceFileInfo& info, std::uintma
     report << "Callable inventory: " << (inventory ? "available" : "unavailable") << '\n';
     if (!inventory && inventory.error != inventory.compilation.error) {
         report << "Reason: " << inventory.error << '\n';
+    }
+    if (!inventory.diagnostics.empty()) {
+        report << "Frontend diagnostics: " << inventory.diagnostics.size() << '\n';
+        for (const auto& diagnostic : inventory.diagnostics) {
+            append_diagnostic(report, diagnostic);
+        }
     }
     if (inventory) {
         report << "Callable definitions: " << inventory.callables.size() << '\n';
