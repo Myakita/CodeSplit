@@ -56,6 +56,13 @@ void formats_source_file_as_json() {
                     .target_symbol_id = "c:@N@sample@F@helper#I#",
                     .target_qualified_name = "sample::helper",
                 },
+                {
+                    .kind = codesplit::analysis::CallableDependencyKind::type_reference,
+                    .source_symbol_id = "c:@N@sample@F@caller#I#",
+                    .source_qualified_name = "sample::caller",
+                    .target_symbol_id = "c:@N@sample@S@Payload",
+                    .target_qualified_name = "sample::Payload",
+                },
             },
         .diagnostics =
             {
@@ -102,6 +109,13 @@ void formats_source_file_as_json() {
                  "        \"source_qualified_name\": \"sample::caller\",\n"
                  "        \"target_symbol_id\": \"c:@N@sample@F@helper#I#\",\n"
                  "        \"target_qualified_name\": \"sample::helper\"\n"
+                 "      },\n"
+                 "      {\n"
+                 "        \"kind\": \"type_reference\",\n"
+                 "        \"source_symbol_id\": \"c:@N@sample@F@caller#I#\",\n"
+                 "        \"source_qualified_name\": \"sample::caller\",\n"
+                 "        \"target_symbol_id\": \"c:@N@sample@S@Payload\",\n"
+                 "        \"target_qualified_name\": \"sample::Payload\"\n"
                  "      }\n"
                  "    ],\n"
                  "    \"definitions\": [\n"

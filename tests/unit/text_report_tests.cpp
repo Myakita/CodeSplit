@@ -73,6 +73,13 @@ void formats_source_file_information() {
                     .target_symbol_id = "c:@N@sample@F@helper#I#",
                     .target_qualified_name = "sample::helper",
                 },
+                {
+                    .kind = codesplit::analysis::CallableDependencyKind::type_reference,
+                    .source_symbol_id = "c:@N@sample@S@Worker@F@run#I#",
+                    .source_qualified_name = "sample::Worker::run",
+                    .target_symbol_id = "c:@N@sample@S@Payload",
+                    .target_qualified_name = "sample::Payload",
+                },
             },
         .diagnostics =
             {
@@ -104,8 +111,9 @@ void formats_source_file_information() {
                  "  Symbol ID: c:@N@sample@S@Worker@F@run#I#\n"
                  "  Declaration: include/worker.hpp, lines 4-4\n"
                  "  Owning record: include/worker.hpp, lines 2-6\n"
-                 "Callable dependencies: 1\n"
-                 "- direct call sample::Worker::run -> sample::helper\n",
+                 "Callable dependencies: 2\n"
+                 "- direct call sample::Worker::run -> sample::helper\n"
+                 "- type reference sample::Worker::run -> sample::Payload\n",
                  "text report should contain stable source-file information");
 }
 

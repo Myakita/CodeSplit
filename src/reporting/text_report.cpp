@@ -48,6 +48,8 @@ std::string_view dependency_kind_name(analysis::CallableDependencyKind kind) {
     switch (kind) {
     case analysis::CallableDependencyKind::direct_call:
         return "direct call";
+    case analysis::CallableDependencyKind::type_reference:
+        return "type reference";
     }
     return "unknown";
 }
