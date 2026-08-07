@@ -73,7 +73,7 @@ if(CODESPLIT_ENABLE_CLANG AND LLVM_FOUND AND Clang_FOUND)
         src/clang/callable_inventory.cpp
         src/clang/compilation_database.cpp
     )
-    target_link_libraries(codesplit_clang PRIVATE clangTooling)
+    target_link_libraries(codesplit_clang PRIVATE clangTooling clangIndex)
     target_include_directories(codesplit_clang SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
     set(CODESPLIT_HAS_CLANG_TOOLING ON)
     message(STATUS "CodeSplit Clang LibTooling integration enabled")

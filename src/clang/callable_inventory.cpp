@@ -6,11 +6,14 @@
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Frontend/FrontendAction.h>
+#include <clang/Index/USRGeneration.h>
 #include <clang/Lex/Lexer.h>
 #include <clang/Tooling/Tooling.h>
+#include <llvm/ADT/SmallString.h>
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <utility>
 
 namespace codesplit::analysis {
@@ -18,6 +21,43 @@ namespace {
 
 void add_constraint(CallableDefinition& callable, CallableConstraint constraint) {
     callable.constraints.push_back(constraint);
+}
+
+std::string symbol_id_for(const clang::Decl& declaration) {
+    llvm::SmallString<128> symbol_id;
+    if (clang::index::generateUSRForDecl(&declaration, symbol_id)) {
+        return {};
+    }
+    return std::string{symbol_id};
+}
+
+std::optional<SourceRange> source_range_for(const clang::SourceRange source_range,
+                                            clang::SourceManager& source_manager,
+                                            const clang::LangOptions& language_options) {
+    const auto begin = source_manager.getExpansionLoc(source_range.getBegin());
+    const auto token_end = source_manager.getExpansionLoc(source_range.getEnd());
+    if (begin.isInvalid() || token_end.isInvalid()) {
+        return std::nullopt;
+    }
+
+    const auto end =
+        clang::Lexer::getLocForEndOfToken(token_end, 0, source_manager, language_options);
+    if (end.isInvalid() || source_manager.getFileID(begin) != source_manager.getFileID(end)) {
+        return std::nullopt;
+    }
+
+    const auto filename = source_manager.getFilename(begin);
+    if (filename.empty()) {
+        return std::nullopt;
+    }
+
+    return SourceRange{
+        .path = std::filesystem::path{filename.str()},
+        .begin_offset = source_manager.getFileOffset(begin),
+        .end_offset = source_manager.getFileOffset(end),
+        .begin_line = source_manager.getExpansionLineNumber(source_range.getBegin()),
+        .end_line = source_manager.getExpansionLineNumber(source_range.getEnd()),
+    };
 }
 
 class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
@@ -51,10 +91,21 @@ class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
 
         const auto body_end = body->getEndLoc();
         const auto expanded_end = source_manager_.getExpansionLoc(body_end);
-        CallableDefinition callable{
-            .kind = method == nullptr ? CallableKind::free_function : CallableKind::method,
-            .qualified_name = declaration->getQualifiedNameAsString(),
-        };
+        const auto* canonical_declaration = declaration->getCanonicalDecl();
+        CallableDefinition callable;
+        callable.kind = method == nullptr ? CallableKind::free_function : CallableKind::method;
+        callable.qualified_name = declaration->getQualifiedNameAsString();
+        callable.symbol_id = symbol_id_for(*canonical_declaration);
+        if (canonical_declaration != declaration) {
+            callable.declaration = source_range_for(canonical_declaration->getSourceRange(),
+                                                    source_manager_, language_options_);
+        }
+        if (const auto* canonical_method =
+                llvm::dyn_cast<clang::CXXMethodDecl>(canonical_declaration)) {
+            callable.owning_record =
+                source_range_for(canonical_method->getParent()->getSourceRange(), source_manager_,
+                                 language_options_);
+        }
 
         if (declaration_begin.isMacroID() || body_end.isMacroID()) {
             add_constraint(callable, CallableConstraint::macro_expansion);

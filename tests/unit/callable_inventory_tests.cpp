@@ -36,17 +36,24 @@ class TemporaryProject {
                 ("codesplit_callable_inventory_" + std::to_string(suffix));
         std::filesystem::create_directories(build_path());
 
+        std::ofstream header{header_path()};
+        header << "namespace sample {\n"
+                  "class Worker {\n"
+                  "public:\n"
+                  "    int run(int) const &;\n"
+                  "    int run(double);\n"
+                  "    int inline_method() { return 1; }\n"
+                  "};\n"
+                  "}\n";
+
         std::ofstream source{source_path()};
-        source << "namespace sample {\n"
+        source << "#include \"worker.hpp\"\n"
+                  "namespace sample {\n"
                   "int declaration(int);\n"
                   "int helper(int value) { return value * 2; }\n"
                   "int unavailable(int) = delete;\n"
-                  "class Worker {\n"
-                  "public:\n"
-                  "    int run(int);\n"
-                  "    int inline_method() { return 1; }\n"
-                  "};\n"
-                  "int Worker::run(int value) { return helper(value); }\n"
+                  "int Worker::run(int value) const & { return helper(value); }\n"
+                  "int Worker::run(double value) { return static_cast<int>(value); }\n"
                   "}\n"
                   "#define DEFINE_FUNCTION(name) int name() { return 1; }\n"
                   "DEFINE_FUNCTION(generated)\n";
@@ -72,6 +79,7 @@ class TemporaryProject {
     TemporaryProject& operator=(const TemporaryProject&) = delete;
 
     [[nodiscard]] std::filesystem::path source_path() const { return root_ / "sample.cpp"; }
+    [[nodiscard]] std::filesystem::path header_path() const { return root_ / "worker.hpp"; }
     [[nodiscard]] std::filesystem::path build_path() const { return root_ / "build"; }
 
   private:
@@ -82,6 +90,15 @@ const codesplit::analysis::CallableDefinition*
 find_callable(const codesplit::analysis::CallableInventoryResult& result, const std::string& name) {
     const auto callable = std::ranges::find(
         result.callables, name, &codesplit::analysis::CallableDefinition::qualified_name);
+    return callable == result.callables.end() ? nullptr : &*callable;
+}
+
+const codesplit::analysis::CallableDefinition*
+find_callable_at_line(const codesplit::analysis::CallableInventoryResult& result,
+                      const std::string& name, std::uintmax_t begin_line) {
+    const auto callable = std::ranges::find_if(result.callables, [&](const auto& candidate) {
+        return candidate.qualified_name == name && candidate.begin_line == begin_line;
+    });
     return callable == result.callables.end() ? nullptr : &*callable;
 }
 
@@ -106,7 +123,7 @@ void inventories_source_definitions() {
     if (function != nullptr) {
         expect(function->kind == codesplit::analysis::CallableKind::free_function,
                "free function should retain its kind");
-        expect(function->begin_line == 3 && function->end_line == 3,
+        expect(function->begin_line == 4 && function->end_line == 4,
                "free function should retain exact source lines");
         expect(function->end_offset > function->begin_offset,
                "free function should retain a non-empty source range");
@@ -117,11 +134,39 @@ void inventories_source_definitions() {
             "callable larger than the configured limit should be marked");
     }
 
-    const auto* method = find_callable(result, "sample::Worker::run");
+    const auto* method = find_callable_at_line(result, "sample::Worker::run", 6);
     expect(method != nullptr, "out-of-line method definition should be found");
     if (method != nullptr) {
         expect(method->kind == codesplit::analysis::CallableKind::method,
                "out-of-line method should retain its kind");
+        expect(!method->symbol_id.empty(), "method should retain a stable symbol identifier");
+        expect(method->declaration.has_value(), "method should link to its class declaration");
+        if (method->declaration.has_value()) {
+            expect(method->declaration->path.filename() == project.header_path().filename(),
+                   "method declaration should retain its header path");
+            expect(method->declaration->begin_line == 4,
+                   "overload should link to the matching declaration");
+        }
+        expect(method->owning_record.has_value(), "method should link to its owning class");
+        if (method->owning_record.has_value()) {
+            expect(method->owning_record->path.filename() == project.header_path().filename(),
+                   "owning class should retain its header path");
+            expect(method->owning_record->begin_line == 2,
+                   "owning class should retain its source line");
+        }
+    }
+
+    const auto* overload = find_callable_at_line(result, "sample::Worker::run", 7);
+    expect(overload != nullptr, "overloaded out-of-line method should be found");
+    if (method != nullptr && overload != nullptr) {
+        expect(!overload->symbol_id.empty(), "overload should retain a stable symbol identifier");
+        expect(method->symbol_id != overload->symbol_id,
+               "overloads should retain distinct symbol identifiers");
+        expect(overload->declaration.has_value(), "overload should link to its declaration");
+        if (overload->declaration.has_value()) {
+            expect(overload->declaration->begin_line == 5,
+                   "overload should not link by qualified name alone");
+        }
     }
 
     const auto* generated = find_callable(result, "generated");
