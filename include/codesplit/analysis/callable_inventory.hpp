@@ -14,7 +14,7 @@ enum class CallableKind { free_function, method };
 
 enum class FrontendDiagnosticSeverity { note, remark, warning, error, fatal };
 
-enum class CallableDependencyKind { direct_call, type_reference };
+enum class CallableDependencyKind { direct_call, type_reference, global_read, global_write };
 
 enum class CallableConstraint {
     macro_expansion,

@@ -2,8 +2,10 @@
 #include "compilation_database_internal.hpp"
 
 #include <clang/AST/ASTConsumer.h>
+#include <clang/AST/ASTContext.h>
 #include <clang/AST/DeclCXX.h>
 #include <clang/AST/Expr.h>
+#include <clang/AST/ParentMapContext.h>
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/TypeLoc.h>
 #include <clang/Basic/Diagnostic.h>
@@ -198,6 +200,70 @@ class TypeReferenceVisitor : public clang::RecursiveASTVisitor<TypeReferenceVisi
     std::vector<CallableDependency>& dependencies_;
 };
 
+class GlobalDataVisitor : public clang::RecursiveASTVisitor<GlobalDataVisitor> {
+  public:
+    GlobalDataVisitor(clang::ASTContext& context, std::string source_symbol_id,
+                      std::string source_qualified_name,
+                      std::vector<CallableDependency>& dependencies)
+        : context_{context}, source_symbol_id_{std::move(source_symbol_id)},
+          source_qualified_name_{std::move(source_qualified_name)}, dependencies_{dependencies} {}
+
+    bool VisitDeclRefExpr(clang::DeclRefExpr* expression) {
+        const auto* variable = llvm::dyn_cast<clang::VarDecl>(expression->getDecl());
+        if (variable == nullptr || !variable->hasGlobalStorage() || variable->isLocalVarDecl()) {
+            return true;
+        }
+
+        const auto* canonical_variable = variable->getCanonicalDecl();
+        auto node = clang::DynTypedNode::create(*expression);
+        while (true) {
+            const auto parents = context_.getParents(node);
+            if (parents.empty()) {
+                break;
+            }
+
+            const auto& parent = parents[0];
+            if (parent.get<clang::ParenExpr>() != nullptr ||
+                parent.get<clang::ImplicitCastExpr>() != nullptr) {
+                node = parent;
+                continue;
+            }
+
+            if (const auto* binary = parent.get<clang::BinaryOperator>();
+                binary != nullptr && binary->isAssignmentOp() &&
+                binary->getLHS()->IgnoreParenImpCasts() == expression) {
+                add_dependency(dependencies_, CallableDependencyKind::global_write,
+                               source_symbol_id_, source_qualified_name_, *canonical_variable);
+                if (binary->isCompoundAssignmentOp()) {
+                    add_dependency(dependencies_, CallableDependencyKind::global_read,
+                                   source_symbol_id_, source_qualified_name_, *canonical_variable);
+                }
+                return true;
+            }
+
+            if (const auto* unary = parent.get<clang::UnaryOperator>();
+                unary != nullptr && unary->isIncrementDecrementOp()) {
+                add_dependency(dependencies_, CallableDependencyKind::global_read,
+                               source_symbol_id_, source_qualified_name_, *canonical_variable);
+                add_dependency(dependencies_, CallableDependencyKind::global_write,
+                               source_symbol_id_, source_qualified_name_, *canonical_variable);
+                return true;
+            }
+            break;
+        }
+
+        add_dependency(dependencies_, CallableDependencyKind::global_read, source_symbol_id_,
+                       source_qualified_name_, *canonical_variable);
+        return true;
+    }
+
+  private:
+    clang::ASTContext& context_;
+    std::string source_symbol_id_;
+    std::string source_qualified_name_;
+    std::vector<CallableDependency>& dependencies_;
+};
+
 class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
   public:
     CallableVisitor(clang::SourceManager& source_manager,
@@ -252,6 +318,9 @@ class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
         TypeReferenceVisitor type_reference_visitor{callable.symbol_id, callable.qualified_name,
                                                     dependencies_};
         type_reference_visitor.TraverseDecl(declaration);
+        GlobalDataVisitor global_data_visitor{declaration->getASTContext(), callable.symbol_id,
+                                              callable.qualified_name, dependencies_};
+        global_data_visitor.TraverseStmt(const_cast<clang::Stmt*>(body));
 
         if (declaration_begin.isMacroID() || body_end.isMacroID()) {
             add_constraint(callable, CallableConstraint::macro_expansion);

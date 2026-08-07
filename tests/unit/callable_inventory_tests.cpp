@@ -58,6 +58,10 @@ class TemporaryProject {
                   "int Worker::run(double value) { return helper(static_cast<int>(value)); }\n"
                   "int consume(const Payload& payload) { Payload copy = payload; return "
                   "copy.value; }\n"
+                  "int counter = 0;\n"
+                  "int read_counter() { return counter; }\n"
+                  "void set_counter(int value) { (counter) = value; }\n"
+                  "void increment_counter() { ++(counter); }\n"
                   "}\n"
                   "#define DEFINE_FUNCTION(name) int name() { return 1; }\n"
                   "DEFINE_FUNCTION(generated)\n"
@@ -186,6 +190,17 @@ find_dependency_to(const codesplit::analysis::CallableInventoryResult& result,
     return dependency == result.dependencies.end() ? nullptr : &*dependency;
 }
 
+const codesplit::analysis::CallableDependency*
+find_dependency_to(const codesplit::analysis::CallableInventoryResult& result,
+                   const std::string& source_symbol_id, const std::string& target_qualified_name,
+                   codesplit::analysis::CallableDependencyKind kind) {
+    const auto dependency = std::ranges::find_if(result.dependencies, [&](const auto& candidate) {
+        return candidate.kind == kind && candidate.source_symbol_id == source_symbol_id &&
+               candidate.target_qualified_name == target_qualified_name;
+    });
+    return dependency == result.dependencies.end() ? nullptr : &*dependency;
+}
+
 void inventories_source_definitions() {
     const TemporaryProject project;
     constexpr std::uintmax_t size_limit_bytes = 8;
@@ -205,7 +220,7 @@ void inventories_source_definitions() {
     if (warning != nullptr) {
         expect(warning->path.filename() == project.source_path().filename(),
                "frontend warning should retain its source path");
-        expect(warning->line == 12, "frontend warning should retain its source line");
+        expect(warning->line == 16, "frontend warning should retain its source line");
     }
     expect(find_callable(result, "sample::declaration") == nullptr,
            "declarations without a body should be excluded");
@@ -303,6 +318,38 @@ void inventories_source_definitions() {
             expect(matching_references == 1,
                    "repeated uses of one record should produce one dependency edge");
         }
+    }
+
+    const auto* reader = find_callable(result, "sample::read_counter");
+    const auto* writer = find_callable(result, "sample::set_counter");
+    const auto* increment = find_callable(result, "sample::increment_counter");
+    expect(reader != nullptr && writer != nullptr && increment != nullptr,
+           "global access functions should be found");
+    if (reader != nullptr && writer != nullptr && increment != nullptr) {
+        expect(find_dependency_to(result, reader->symbol_id, "sample::counter",
+                                  codesplit::analysis::CallableDependencyKind::global_read) !=
+                   nullptr,
+               "reading a global should produce a read dependency");
+        expect(find_dependency_to(result, reader->symbol_id, "sample::counter",
+                                  codesplit::analysis::CallableDependencyKind::global_write) ==
+                   nullptr,
+               "reading a global should not produce a write dependency");
+        expect(find_dependency_to(result, writer->symbol_id, "sample::counter",
+                                  codesplit::analysis::CallableDependencyKind::global_write) !=
+                   nullptr,
+               "assigning a global should produce a write dependency");
+        expect(find_dependency_to(result, writer->symbol_id, "sample::counter",
+                                  codesplit::analysis::CallableDependencyKind::global_read) ==
+                   nullptr,
+               "simple assignment should not produce a read dependency");
+        expect(find_dependency_to(result, increment->symbol_id, "sample::counter",
+                                  codesplit::analysis::CallableDependencyKind::global_read) !=
+                   nullptr,
+               "incrementing a global should produce a read dependency");
+        expect(find_dependency_to(result, increment->symbol_id, "sample::counter",
+                                  codesplit::analysis::CallableDependencyKind::global_write) !=
+                   nullptr,
+               "incrementing a global should produce a write dependency");
     }
 
     const auto* generated = find_callable(result, "generated");
