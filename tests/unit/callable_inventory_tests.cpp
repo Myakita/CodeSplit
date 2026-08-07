@@ -45,6 +45,7 @@ class TemporaryProject {
                   "    int run(double);\n"
                   "    int inline_method() { return 1; }\n"
                   "};\n"
+                  "struct Payload { int value; }; int consume(const Payload&);\n"
                   "}\n";
 
         std::ofstream source{source_path()};
@@ -55,6 +56,8 @@ class TemporaryProject {
                   "int unavailable(int) = delete;\n"
                   "int Worker::run(int value) const & { return helper(value); }\n"
                   "int Worker::run(double value) { return helper(static_cast<int>(value)); }\n"
+                  "int consume(const Payload& payload) { Payload copy = payload; return "
+                  "copy.value; }\n"
                   "}\n"
                   "#define DEFINE_FUNCTION(name) int name() { return 1; }\n"
                   "DEFINE_FUNCTION(generated)\n"
@@ -173,6 +176,16 @@ find_dependency(const codesplit::analysis::CallableInventoryResult& result,
     return dependency == result.dependencies.end() ? nullptr : &*dependency;
 }
 
+const codesplit::analysis::CallableDependency*
+find_dependency_to(const codesplit::analysis::CallableInventoryResult& result,
+                   const std::string& source_symbol_id, const std::string& target_qualified_name) {
+    const auto dependency = std::ranges::find_if(result.dependencies, [&](const auto& candidate) {
+        return candidate.source_symbol_id == source_symbol_id &&
+               candidate.target_qualified_name == target_qualified_name;
+    });
+    return dependency == result.dependencies.end() ? nullptr : &*dependency;
+}
+
 void inventories_source_definitions() {
     const TemporaryProject project;
     constexpr std::uintmax_t size_limit_bytes = 8;
@@ -192,7 +205,7 @@ void inventories_source_definitions() {
     if (warning != nullptr) {
         expect(warning->path.filename() == project.source_path().filename(),
                "frontend warning should retain its source path");
-        expect(warning->line == 11, "frontend warning should retain its source line");
+        expect(warning->line == 12, "frontend warning should retain its source line");
     }
     expect(find_callable(result, "sample::declaration") == nullptr,
            "declarations without a body should be excluded");
@@ -265,6 +278,30 @@ void inventories_source_definitions() {
                    "dependency should retain the source name");
             expect(method_call->target_qualified_name == "sample::helper",
                    "dependency should retain the target name");
+        }
+    }
+
+    const auto* consumer = find_callable(result, "sample::consume");
+    expect(consumer != nullptr, "function using a record type should be found");
+    if (consumer != nullptr) {
+        const auto* type_reference =
+            find_dependency_to(result, consumer->symbol_id, "sample::Payload");
+        expect(type_reference != nullptr, "record use should produce a type dependency edge");
+        if (type_reference != nullptr) {
+            expect(type_reference->kind ==
+                       codesplit::analysis::CallableDependencyKind::type_reference,
+                   "record use should retain the type dependency kind");
+            expect(!type_reference->target_symbol_id.empty(),
+                   "type dependency should retain the record USR");
+            const auto matching_references =
+                std::ranges::count_if(result.dependencies, [&](const auto& dependency) {
+                    return dependency.kind ==
+                               codesplit::analysis::CallableDependencyKind::type_reference &&
+                           dependency.source_symbol_id == consumer->symbol_id &&
+                           dependency.target_symbol_id == type_reference->target_symbol_id;
+                });
+            expect(matching_references == 1,
+                   "repeated uses of one record should produce one dependency edge");
         }
     }
 

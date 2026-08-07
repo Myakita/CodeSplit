@@ -5,6 +5,7 @@
 #include <clang/AST/DeclCXX.h>
 #include <clang/AST/Expr.h>
 #include <clang/AST/RecursiveASTVisitor.h>
+#include <clang/AST/TypeLoc.h>
 #include <clang/Basic/Diagnostic.h>
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Frontend/FrontendAction.h>
@@ -123,6 +124,33 @@ std::optional<SourceRange> source_range_for(const clang::SourceRange source_rang
     };
 }
 
+void add_dependency(std::vector<CallableDependency>& dependencies, CallableDependencyKind kind,
+                    const std::string& source_symbol_id, const std::string& source_qualified_name,
+                    const clang::NamedDecl& canonical_target) {
+    if (source_symbol_id.empty()) {
+        return;
+    }
+
+    const auto target_symbol_id = symbol_id_for(canonical_target);
+    if (target_symbol_id.empty()) {
+        return;
+    }
+
+    const auto duplicate = std::ranges::any_of(dependencies, [&](const auto& dependency) {
+        return dependency.kind == kind && dependency.source_symbol_id == source_symbol_id &&
+               dependency.target_symbol_id == target_symbol_id;
+    });
+    if (!duplicate) {
+        dependencies.push_back({
+            .kind = kind,
+            .source_symbol_id = source_symbol_id,
+            .source_qualified_name = source_qualified_name,
+            .target_symbol_id = target_symbol_id,
+            .target_qualified_name = canonical_target.getQualifiedNameAsString(),
+        });
+    }
+}
+
 class DirectCallVisitor : public clang::RecursiveASTVisitor<DirectCallVisitor> {
   public:
     DirectCallVisitor(std::string source_symbol_id, std::string source_qualified_name,
@@ -132,28 +160,34 @@ class DirectCallVisitor : public clang::RecursiveASTVisitor<DirectCallVisitor> {
 
     bool VisitCallExpr(clang::CallExpr* expression) {
         const auto* target = expression->getDirectCallee();
-        if (target == nullptr || source_symbol_id_.empty()) {
+        if (target == nullptr) {
             return true;
         }
 
         const auto* canonical_target = target->getCanonicalDecl();
-        const auto target_symbol_id = symbol_id_for(*canonical_target);
-        if (target_symbol_id.empty()) {
-            return true;
-        }
+        add_dependency(dependencies_, CallableDependencyKind::direct_call, source_symbol_id_,
+                       source_qualified_name_, *canonical_target);
+        return true;
+    }
 
-        const auto duplicate = std::ranges::any_of(dependencies_, [&](const auto& dependency) {
-            return dependency.source_symbol_id == source_symbol_id_ &&
-                   dependency.target_symbol_id == target_symbol_id;
-        });
-        if (!duplicate) {
-            dependencies_.push_back({
-                .kind = CallableDependencyKind::direct_call,
-                .source_symbol_id = source_symbol_id_,
-                .source_qualified_name = source_qualified_name_,
-                .target_symbol_id = target_symbol_id,
-                .target_qualified_name = canonical_target->getQualifiedNameAsString(),
-            });
+  private:
+    std::string source_symbol_id_;
+    std::string source_qualified_name_;
+    std::vector<CallableDependency>& dependencies_;
+};
+
+class TypeReferenceVisitor : public clang::RecursiveASTVisitor<TypeReferenceVisitor> {
+  public:
+    TypeReferenceVisitor(std::string source_symbol_id, std::string source_qualified_name,
+                         std::vector<CallableDependency>& dependencies)
+        : source_symbol_id_{std::move(source_symbol_id)},
+          source_qualified_name_{std::move(source_qualified_name)}, dependencies_{dependencies} {}
+
+    bool VisitTagTypeLoc(clang::TagTypeLoc type_location) {
+        const auto* target = type_location.getDecl();
+        if (target != nullptr) {
+            add_dependency(dependencies_, CallableDependencyKind::type_reference, source_symbol_id_,
+                           source_qualified_name_, *target->getCanonicalDecl());
         }
         return true;
     }
@@ -215,6 +249,9 @@ class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
         DirectCallVisitor direct_call_visitor{callable.symbol_id, callable.qualified_name,
                                               dependencies_};
         direct_call_visitor.TraverseStmt(const_cast<clang::Stmt*>(body));
+        TypeReferenceVisitor type_reference_visitor{callable.symbol_id, callable.qualified_name,
+                                                    dependencies_};
+        type_reference_visitor.TraverseDecl(declaration);
 
         if (declaration_begin.isMacroID() || body_end.isMacroID()) {
             add_constraint(callable, CallableConstraint::macro_expansion);
