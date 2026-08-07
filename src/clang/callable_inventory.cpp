@@ -61,6 +61,9 @@ class CollectingDiagnosticConsumer : public clang::DiagnosticConsumer {
         FrontendDiagnostic diagnostic{
             .severity = *severity,
             .message = std::string{message.begin(), message.end()},
+            .path = {},
+            .line = 0,
+            .column = 0,
         };
 
         const auto location = information.getLocation();
@@ -276,6 +279,7 @@ CompilationCommandResult public_command(const clang::tooling::CompileCommand& co
                 .working_directory = std::filesystem::path{command.Directory},
                 .arguments = command.CommandLine,
             },
+        .error = {},
     };
 }
 
