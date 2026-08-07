@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -92,6 +93,49 @@ class TemporaryProject {
     std::filesystem::path root_;
 };
 
+class LanguageProject {
+  public:
+    LanguageProject(const std::string& extension, const std::string& compiler,
+                    const std::string& standard, const std::string& content)
+        : extension_{extension} {
+        const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
+        root_ = std::filesystem::temp_directory_path() /
+                ("codesplit_language_matrix_" + extension + '_' + std::to_string(suffix));
+        std::filesystem::create_directories(build_path());
+
+        std::ofstream source{source_path()};
+        source << content;
+
+        std::ofstream database{build_path() / "compile_commands.json"};
+        database << "[\n"
+                    "  {\n"
+                    "    \"directory\": \""
+                 << path_to_utf8(root_) << "\",\n"
+                 << "    \"file\": \"" << path_to_utf8(source_path()) << "\",\n"
+                 << "    \"arguments\": [\"" << compiler << "\", \"" << standard << "\", \"-c\", \""
+                 << path_to_utf8(source_path()) << "\"]\n"
+                 << "  }\n"
+                    "]\n";
+    }
+
+    ~LanguageProject() {
+        std::error_code error;
+        std::filesystem::remove_all(root_, error);
+    }
+
+    LanguageProject(const LanguageProject&) = delete;
+    LanguageProject& operator=(const LanguageProject&) = delete;
+
+    [[nodiscard]] std::filesystem::path source_path() const {
+        return root_ / ("sample." + extension_);
+    }
+    [[nodiscard]] std::filesystem::path build_path() const { return root_ / "build"; }
+
+  private:
+    std::filesystem::path root_;
+    std::string extension_;
+};
+
 const codesplit::analysis::CallableDefinition*
 find_callable(const codesplit::analysis::CallableInventoryResult& result, const std::string& name) {
     const auto callable = std::ranges::find(
@@ -121,7 +165,7 @@ find_diagnostic(const codesplit::analysis::CallableInventoryResult& result,
 
 void inventories_source_definitions() {
     const TemporaryProject project;
-    constexpr std::uintmax_t size_limit_bytes = 32;
+    constexpr std::uintmax_t size_limit_bytes = 8;
 
     const auto result = codesplit::analysis::inventory_callables(
         project.build_path(), project.source_path(), size_limit_bytes);
@@ -203,6 +247,9 @@ void inventories_source_definitions() {
     if (generated != nullptr) {
         expect(has_constraint(*generated, codesplit::analysis::CallableConstraint::macro_expansion),
                "macro-generated definition should retain its origin");
+        expect(
+            has_constraint(*generated, codesplit::analysis::CallableConstraint::exceeds_size_limit),
+            "macro-generated oversized definition should retain both constraints");
     }
 }
 
@@ -226,6 +273,74 @@ void reports_frontend_errors() {
     }
 }
 
+void inventories_c_and_cpp_language_standards() {
+    struct LanguageCase {
+        std::string extension;
+        std::string compiler;
+        std::string standard;
+        std::string content;
+        std::string callable_name;
+    };
+
+    const std::vector<LanguageCase> cases{
+        {
+            .extension = "c",
+            .compiler = "clang",
+            .standard = "-std=c11",
+            .content = "_Static_assert(_Generic(1, int: 1, default: 0), \"C11 required\");\n"
+                       "int calculate(int value) { return value + 1; }\n",
+            .callable_name = "calculate",
+        },
+        {
+            .extension = "c",
+            .compiler = "clang",
+            .standard = "-std=c17",
+            .content = "_Static_assert(sizeof(int) >= 2, \"C17 translation unit\");\n"
+                       "int calculate(int value) { return value + 1; }\n",
+            .callable_name = "calculate",
+        },
+        {
+            .extension = "cpp",
+            .compiler = "clang++",
+            .standard = "-std=c++17",
+            .content = "namespace sample {\n"
+                       "constexpr int language_version() {\n"
+                       "    if constexpr (true) { return 17; }\n"
+                       "}\n"
+                       "int calculate(int value) { return value + 1; }\n"
+                       "}\n",
+            .callable_name = "sample::calculate",
+        },
+        {
+            .extension = "cpp",
+            .compiler = "clang++",
+            .standard = "-std=c++20",
+            .content = "namespace sample {\n"
+                       "template <typename T> concept Number = true;\n"
+                       "static_assert(Number<int>);\n"
+                       "int calculate(int value) { return value + 1; }\n"
+                       "}\n",
+            .callable_name = "sample::calculate",
+        },
+    };
+
+    for (const auto& language : cases) {
+        const LanguageProject project{language.extension, language.compiler, language.standard,
+                                      language.content};
+        const auto result = codesplit::analysis::inventory_callables(project.build_path(),
+                                                                     project.source_path(), 1024);
+
+        expect(static_cast<bool>(result), language.standard + " source should be inventoried");
+        expect(result.diagnostics.empty(),
+               language.standard + " source should not produce diagnostics");
+        expect(find_callable(result, language.callable_name) != nullptr,
+               language.standard + " callable should be found");
+        expect(std::ranges::find(result.compilation.command.arguments, language.standard) !=
+                   result.compilation.command.arguments.end(),
+               language.standard + " flag should be preserved");
+    }
+}
+
 void rejects_missing_compilation_database() {
     const TemporaryProject project;
     std::filesystem::remove(project.build_path() / "compile_commands.json");
@@ -244,6 +359,7 @@ void rejects_missing_compilation_database() {
 int main() {
     inventories_source_definitions();
     reports_frontend_errors();
+    inventories_c_and_cpp_language_standards();
     rejects_missing_compilation_database();
 
     if (failure_count == 0) {
