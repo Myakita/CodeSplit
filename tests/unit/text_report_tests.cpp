@@ -40,6 +40,23 @@ void formats_source_file_information() {
                 {
                     .kind = codesplit::analysis::CallableKind::method,
                     .qualified_name = "sample::Worker::run",
+                    .symbol_id = "c:@N@sample@S@Worker@F@run#I#",
+                    .declaration =
+                        codesplit::analysis::SourceRange{
+                            .path = "include/worker.hpp",
+                            .begin_offset = 42,
+                            .end_offset = 59,
+                            .begin_line = 4,
+                            .end_line = 4,
+                        },
+                    .owning_record =
+                        codesplit::analysis::SourceRange{
+                            .path = "include/worker.hpp",
+                            .begin_offset = 19,
+                            .end_offset = 80,
+                            .begin_line = 2,
+                            .end_line = 6,
+                        },
                     .begin_offset = 160,
                     .end_offset = 220,
                     .size_bytes = 60,
@@ -61,7 +78,10 @@ void formats_source_file_information() {
                  "Callable definitions: 2\n"
                  "- free function sample::helper: lines 3-5, 120 bytes"
                  " [exceeds_size_limit]\n"
-                 "- method sample::Worker::run: lines 8-10, 60 bytes\n",
+                 "- method sample::Worker::run: lines 8-10, 60 bytes\n"
+                 "  Symbol ID: c:@N@sample@S@Worker@F@run#I#\n"
+                 "  Declaration: include/worker.hpp, lines 4-4\n"
+                 "  Owning record: include/worker.hpp, lines 2-6\n",
                  "text report should contain stable source-file information");
 }
 

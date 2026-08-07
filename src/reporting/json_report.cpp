@@ -1,5 +1,6 @@
 #include "codesplit/reporting/json_report.hpp"
 
+#include <optional>
 #include <sstream>
 #include <string_view>
 #include <vector>
@@ -88,12 +89,40 @@ void append_constraints(std::ostringstream& report,
     report << ']';
 }
 
+void append_source_range(std::ostringstream& report,
+                         const std::optional<analysis::SourceRange>& source_range) {
+    if (!source_range.has_value()) {
+        report << "null";
+        return;
+    }
+
+    report << "{\n";
+    report << "          \"path\": \"" << escape_json_string(path_to_utf8(source_range->path))
+           << "\",\n";
+    report << "          \"begin_offset\": " << source_range->begin_offset << ",\n";
+    report << "          \"end_offset\": " << source_range->end_offset << ",\n";
+    report << "          \"begin_line\": " << source_range->begin_line << ",\n";
+    report << "          \"end_line\": " << source_range->end_line << "\n";
+    report << "        }";
+}
+
 void append_callable(std::ostringstream& report, const analysis::CallableDefinition& callable,
                      bool is_last) {
     report << "      {\n";
     report << "        \"kind\": \"" << callable_kind_name(callable.kind) << "\",\n";
     report << "        \"qualified_name\": \"" << escape_json_string(callable.qualified_name)
            << "\",\n";
+    if (callable.symbol_id.empty()) {
+        report << "        \"symbol_id\": null,\n";
+    } else {
+        report << "        \"symbol_id\": \"" << escape_json_string(callable.symbol_id) << "\",\n";
+    }
+    report << "        \"declaration\": ";
+    append_source_range(report, callable.declaration);
+    report << ",\n";
+    report << "        \"owning_record\": ";
+    append_source_range(report, callable.owning_record);
+    report << ",\n";
     report << "        \"begin_offset\": " << callable.begin_offset << ",\n";
     report << "        \"end_offset\": " << callable.end_offset << ",\n";
     report << "        \"size_bytes\": " << callable.size_bytes << ",\n";

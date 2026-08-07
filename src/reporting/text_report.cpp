@@ -43,6 +43,18 @@ void append_callable(std::ostringstream& report, const analysis::CallableDefinit
         report << ']';
     }
     report << '\n';
+    if (!callable.symbol_id.empty()) {
+        report << "  Symbol ID: " << callable.symbol_id << '\n';
+    }
+    if (callable.declaration.has_value()) {
+        report << "  Declaration: " << callable.declaration->path.string() << ", lines "
+               << callable.declaration->begin_line << '-' << callable.declaration->end_line << '\n';
+    }
+    if (callable.owning_record.has_value()) {
+        report << "  Owning record: " << callable.owning_record->path.string() << ", lines "
+               << callable.owning_record->begin_line << '-' << callable.owning_record->end_line
+               << '\n';
+    }
 }
 
 } // namespace

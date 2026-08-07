@@ -30,6 +30,15 @@ void formats_source_file_as_json() {
                 {
                     .kind = codesplit::analysis::CallableKind::free_function,
                     .qualified_name = "sample::helper",
+                    .symbol_id = "c:@N@sample@F@helper#I#",
+                    .declaration =
+                        codesplit::analysis::SourceRange{
+                            .path = "include/helper.hpp",
+                            .begin_offset = 10,
+                            .end_offset = 26,
+                            .begin_line = 2,
+                            .end_line = 2,
+                        },
                     .begin_offset = 20,
                     .end_offset = 140,
                     .size_bytes = 120,
@@ -61,6 +70,15 @@ void formats_source_file_as_json() {
                  "      {\n"
                  "        \"kind\": \"free_function\",\n"
                  "        \"qualified_name\": \"sample::helper\",\n"
+                 "        \"symbol_id\": \"c:@N@sample@F@helper#I#\",\n"
+                 "        \"declaration\": {\n"
+                 "          \"path\": \"include/helper.hpp\",\n"
+                 "          \"begin_offset\": 10,\n"
+                 "          \"end_offset\": 26,\n"
+                 "          \"begin_line\": 2,\n"
+                 "          \"end_line\": 2\n"
+                 "        },\n"
+                 "        \"owning_record\": null,\n"
                  "        \"begin_offset\": 20,\n"
                  "        \"end_offset\": 140,\n"
                  "        \"size_bytes\": 120,\n"
