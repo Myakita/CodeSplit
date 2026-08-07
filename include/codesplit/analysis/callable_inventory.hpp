@@ -14,6 +14,8 @@ enum class CallableKind { free_function, method };
 
 enum class FrontendDiagnosticSeverity { note, remark, warning, error, fatal };
 
+enum class CallableDependencyKind { direct_call };
+
 enum class CallableConstraint {
     macro_expansion,
     source_range_unavailable,
@@ -50,9 +52,18 @@ struct CallableDefinition {
     std::vector<CallableConstraint> constraints;
 };
 
+struct CallableDependency {
+    CallableDependencyKind kind = CallableDependencyKind::direct_call;
+    std::string source_symbol_id;
+    std::string source_qualified_name;
+    std::string target_symbol_id;
+    std::string target_qualified_name;
+};
+
 struct CallableInventoryResult {
     CompilationCommandResult compilation;
     std::vector<CallableDefinition> callables;
+    std::vector<CallableDependency> dependencies;
     std::vector<FrontendDiagnostic> diagnostics;
     std::string error;
 

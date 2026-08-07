@@ -3,6 +3,7 @@
 
 #include <clang/AST/ASTConsumer.h>
 #include <clang/AST/DeclCXX.h>
+#include <clang/AST/Expr.h>
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/Basic/Diagnostic.h>
 #include <clang/Frontend/CompilerInstance.h>
@@ -122,13 +123,55 @@ std::optional<SourceRange> source_range_for(const clang::SourceRange source_rang
     };
 }
 
+class DirectCallVisitor : public clang::RecursiveASTVisitor<DirectCallVisitor> {
+  public:
+    DirectCallVisitor(std::string source_symbol_id, std::string source_qualified_name,
+                      std::vector<CallableDependency>& dependencies)
+        : source_symbol_id_{std::move(source_symbol_id)},
+          source_qualified_name_{std::move(source_qualified_name)}, dependencies_{dependencies} {}
+
+    bool VisitCallExpr(clang::CallExpr* expression) {
+        const auto* target = expression->getDirectCallee();
+        if (target == nullptr || source_symbol_id_.empty()) {
+            return true;
+        }
+
+        const auto* canonical_target = target->getCanonicalDecl();
+        const auto target_symbol_id = symbol_id_for(*canonical_target);
+        if (target_symbol_id.empty()) {
+            return true;
+        }
+
+        const auto duplicate = std::ranges::any_of(dependencies_, [&](const auto& dependency) {
+            return dependency.source_symbol_id == source_symbol_id_ &&
+                   dependency.target_symbol_id == target_symbol_id;
+        });
+        if (!duplicate) {
+            dependencies_.push_back({
+                .kind = CallableDependencyKind::direct_call,
+                .source_symbol_id = source_symbol_id_,
+                .source_qualified_name = source_qualified_name_,
+                .target_symbol_id = target_symbol_id,
+                .target_qualified_name = canonical_target->getQualifiedNameAsString(),
+            });
+        }
+        return true;
+    }
+
+  private:
+    std::string source_symbol_id_;
+    std::string source_qualified_name_;
+    std::vector<CallableDependency>& dependencies_;
+};
+
 class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
   public:
     CallableVisitor(clang::SourceManager& source_manager,
                     const clang::LangOptions& language_options, std::uintmax_t size_limit_bytes,
-                    std::vector<CallableDefinition>& callables)
+                    std::vector<CallableDefinition>& callables,
+                    std::vector<CallableDependency>& dependencies)
         : source_manager_{source_manager}, language_options_{language_options},
-          size_limit_bytes_{size_limit_bytes}, callables_{callables} {}
+          size_limit_bytes_{size_limit_bytes}, callables_{callables}, dependencies_{dependencies} {}
 
     bool VisitFunctionDecl(clang::FunctionDecl* declaration) {
         if (!declaration->isThisDeclarationADefinition() || declaration->isImplicit()) {
@@ -169,6 +212,10 @@ class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
                                  language_options_);
         }
 
+        DirectCallVisitor direct_call_visitor{callable.symbol_id, callable.qualified_name,
+                                              dependencies_};
+        direct_call_visitor.TraverseStmt(const_cast<clang::Stmt*>(body));
+
         if (declaration_begin.isMacroID() || body_end.isMacroID()) {
             add_constraint(callable, CallableConstraint::macro_expansion);
         }
@@ -207,14 +254,16 @@ class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
     const clang::LangOptions& language_options_;
     std::uintmax_t size_limit_bytes_;
     std::vector<CallableDefinition>& callables_;
+    std::vector<CallableDependency>& dependencies_;
 };
 
 class CallableConsumer : public clang::ASTConsumer {
   public:
     CallableConsumer(clang::SourceManager& source_manager,
                      const clang::LangOptions& language_options, std::uintmax_t size_limit_bytes,
-                     std::vector<CallableDefinition>& callables)
-        : visitor_{source_manager, language_options, size_limit_bytes, callables} {}
+                     std::vector<CallableDefinition>& callables,
+                     std::vector<CallableDependency>& dependencies)
+        : visitor_{source_manager, language_options, size_limit_bytes, callables, dependencies} {}
 
     void HandleTranslationUnit(clang::ASTContext& context) override {
         visitor_.TraverseDecl(context.getTranslationUnitDecl());
@@ -226,33 +275,38 @@ class CallableConsumer : public clang::ASTConsumer {
 
 class CallableAction : public clang::ASTFrontendAction {
   public:
-    CallableAction(std::uintmax_t size_limit_bytes, std::vector<CallableDefinition>& callables)
-        : size_limit_bytes_{size_limit_bytes}, callables_{callables} {}
+    CallableAction(std::uintmax_t size_limit_bytes, std::vector<CallableDefinition>& callables,
+                   std::vector<CallableDependency>& dependencies)
+        : size_limit_bytes_{size_limit_bytes}, callables_{callables}, dependencies_{dependencies} {}
 
     std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance& compiler,
                                                           llvm::StringRef) override {
-        return std::make_unique<CallableConsumer>(
-            compiler.getSourceManager(), compiler.getLangOpts(), size_limit_bytes_, callables_);
+        return std::make_unique<CallableConsumer>(compiler.getSourceManager(),
+                                                  compiler.getLangOpts(), size_limit_bytes_,
+                                                  callables_, dependencies_);
     }
 
   private:
     std::uintmax_t size_limit_bytes_;
     std::vector<CallableDefinition>& callables_;
+    std::vector<CallableDependency>& dependencies_;
 };
 
 class CallableActionFactory : public clang::tooling::FrontendActionFactory {
   public:
     CallableActionFactory(std::uintmax_t size_limit_bytes,
-                          std::vector<CallableDefinition>& callables)
-        : size_limit_bytes_{size_limit_bytes}, callables_{callables} {}
+                          std::vector<CallableDefinition>& callables,
+                          std::vector<CallableDependency>& dependencies)
+        : size_limit_bytes_{size_limit_bytes}, callables_{callables}, dependencies_{dependencies} {}
 
     std::unique_ptr<clang::FrontendAction> create() override {
-        return std::make_unique<CallableAction>(size_limit_bytes_, callables_);
+        return std::make_unique<CallableAction>(size_limit_bytes_, callables_, dependencies_);
     }
 
   private:
     std::uintmax_t size_limit_bytes_;
     std::vector<CallableDefinition>& callables_;
+    std::vector<CallableDependency>& dependencies_;
 };
 
 class SingleCommandDatabase : public clang::tooling::CompilationDatabase {
@@ -307,9 +361,10 @@ CallableInventoryResult inventory_callables(const std::filesystem::path& build_p
     clang::tooling::ClangTool tool{database, {detail::path_to_utf8(source_path)}};
     CollectingDiagnosticConsumer diagnostic_consumer{result.diagnostics};
     tool.setDiagnosticConsumer(&diagnostic_consumer);
-    CallableActionFactory action_factory{size_limit_bytes, result.callables};
+    CallableActionFactory action_factory{size_limit_bytes, result.callables, result.dependencies};
     if (tool.run(&action_factory) != 0) {
         result.callables.clear();
+        result.dependencies.clear();
         result.error = "Clang frontend failed to analyze: " + detail::path_to_utf8(source_path);
     }
 

@@ -54,7 +54,7 @@ class TemporaryProject {
                   "int helper(int value) { return value * 2; }\n"
                   "int unavailable(int) = delete;\n"
                   "int Worker::run(int value) const & { return helper(value); }\n"
-                  "int Worker::run(double value) { return static_cast<int>(value); }\n"
+                  "int Worker::run(double value) { return helper(static_cast<int>(value)); }\n"
                   "}\n"
                   "#define DEFINE_FUNCTION(name) int name() { return 1; }\n"
                   "DEFINE_FUNCTION(generated)\n"
@@ -163,6 +163,16 @@ find_diagnostic(const codesplit::analysis::CallableInventoryResult& result,
     return diagnostic == result.diagnostics.end() ? nullptr : &*diagnostic;
 }
 
+const codesplit::analysis::CallableDependency*
+find_dependency(const codesplit::analysis::CallableInventoryResult& result,
+                const std::string& source_symbol_id, const std::string& target_symbol_id) {
+    const auto dependency = std::ranges::find_if(result.dependencies, [&](const auto& candidate) {
+        return candidate.source_symbol_id == source_symbol_id &&
+               candidate.target_symbol_id == target_symbol_id;
+    });
+    return dependency == result.dependencies.end() ? nullptr : &*dependency;
+}
+
 void inventories_source_definitions() {
     const TemporaryProject project;
     constexpr std::uintmax_t size_limit_bytes = 8;
@@ -239,6 +249,22 @@ void inventories_source_definitions() {
         if (overload->declaration.has_value()) {
             expect(overload->declaration->begin_line == 5,
                    "overload should not link by qualified name alone");
+        }
+    }
+
+    if (function != nullptr && method != nullptr && overload != nullptr) {
+        const auto* method_call = find_dependency(result, method->symbol_id, function->symbol_id);
+        const auto* overload_call =
+            find_dependency(result, overload->symbol_id, function->symbol_id);
+        expect(method_call != nullptr, "method call should produce a dependency edge");
+        expect(overload_call != nullptr, "overloaded method call should produce a dependency edge");
+        if (method_call != nullptr) {
+            expect(method_call->kind == codesplit::analysis::CallableDependencyKind::direct_call,
+                   "direct call should retain its dependency kind");
+            expect(method_call->source_qualified_name == "sample::Worker::run",
+                   "dependency should retain the source name");
+            expect(method_call->target_qualified_name == "sample::helper",
+                   "dependency should retain the target name");
         }
     }
 
