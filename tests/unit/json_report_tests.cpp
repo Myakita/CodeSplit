@@ -29,6 +29,8 @@ void formats_source_file_as_json() {
             {
                 {
                     .kind = codesplit::analysis::CallableKind::free_function,
+                    .linkage = codesplit::analysis::SymbolLinkage::unique_external,
+                    .in_anonymous_namespace = true,
                     .qualified_name = "sample::helper",
                     .symbol_id = "c:@N@sample@F@helper#I#",
                     .declaration =
@@ -179,6 +181,8 @@ void formats_source_file_as_json() {
                  "    \"definitions\": [\n"
                  "      {\n"
                  "        \"kind\": \"free_function\",\n"
+                 "        \"linkage\": \"unique_external\",\n"
+                 "        \"in_anonymous_namespace\": true,\n"
                  "        \"qualified_name\": \"sample::helper\",\n"
                  "        \"symbol_id\": \"c:@N@sample@F@helper#I#\",\n"
                  "        \"declaration\": {\n"

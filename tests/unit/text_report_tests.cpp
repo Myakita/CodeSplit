@@ -29,6 +29,7 @@ void formats_source_file_information() {
             {
                 {
                     .kind = codesplit::analysis::CallableKind::free_function,
+                    .linkage = codesplit::analysis::SymbolLinkage::external,
                     .qualified_name = "sample::helper",
                     .begin_offset = 20,
                     .end_offset = 140,
@@ -39,6 +40,8 @@ void formats_source_file_information() {
                 },
                 {
                     .kind = codesplit::analysis::CallableKind::method,
+                    .linkage = codesplit::analysis::SymbolLinkage::internal,
+                    .in_anonymous_namespace = true,
                     .qualified_name = "sample::Worker::run",
                     .symbol_id = "c:@N@sample@S@Worker@F@run#I#",
                     .declaration =
@@ -137,7 +140,10 @@ void formats_source_file_information() {
                  "Callable definitions: 2\n"
                  "- free function sample::helper: lines 3-5, 120 bytes"
                  " [exceeds_size_limit]\n"
+                 "  Linkage: external\n"
                  "- method sample::Worker::run: lines 8-10, 60 bytes\n"
+                 "  Linkage: internal\n"
+                 "  Anonymous namespace: yes\n"
                  "  Symbol ID: c:@N@sample@S@Worker@F@run#I#\n"
                  "  Declaration: include/worker.hpp, lines 4-4\n"
                  "  Owning record: include/worker.hpp, lines 2-6\n"

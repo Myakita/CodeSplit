@@ -16,6 +16,22 @@ std::string_view callable_kind_name(analysis::CallableKind kind) {
     return "unknown";
 }
 
+std::string_view linkage_name(analysis::SymbolLinkage linkage) {
+    switch (linkage) {
+    case analysis::SymbolLinkage::none:
+        return "none";
+    case analysis::SymbolLinkage::internal:
+        return "internal";
+    case analysis::SymbolLinkage::unique_external:
+        return "unique external";
+    case analysis::SymbolLinkage::module:
+        return "module";
+    case analysis::SymbolLinkage::external:
+        return "external";
+    }
+    return "unknown";
+}
+
 std::string_view constraint_name(analysis::CallableConstraint constraint) {
     switch (constraint) {
     case analysis::CallableConstraint::macro_expansion:
@@ -92,6 +108,10 @@ void append_callable(std::ostringstream& report, const analysis::CallableDefinit
         report << ']';
     }
     report << '\n';
+    report << "  Linkage: " << linkage_name(callable.linkage) << '\n';
+    if (callable.in_anonymous_namespace) {
+        report << "  Anonymous namespace: yes\n";
+    }
     if (!callable.symbol_id.empty()) {
         report << "  Symbol ID: " << callable.symbol_id << '\n';
     }
