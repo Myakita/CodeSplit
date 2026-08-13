@@ -84,6 +84,46 @@ std::string_view include_kind_name(analysis::IncludeKind kind) {
     return "unknown";
 }
 
+std::string_view blocker_kind_name(planning::MovePlanBlockerKind kind) {
+    using enum planning::MovePlanBlockerKind;
+    switch (kind) {
+    case inventory_unavailable:
+        return "inventory unavailable";
+    case symbol_not_found:
+        return "symbol not found";
+    case source_target_collision:
+        return "source and target collide";
+    case not_free_function:
+        return "not a free function";
+    case callable_constraint:
+        return "callable constraint";
+    case non_external_linkage:
+        return "non-external linkage";
+    case outgoing_dependency:
+        return "outgoing dependency";
+    case incoming_dependency_without_declaration:
+        return "incoming dependency without declaration";
+    case macro_dependency:
+        return "macro dependency";
+    }
+    return "unknown";
+}
+
+std::string_view step_name(planning::MovePlanStepKind kind) {
+    using enum planning::MovePlanStepKind;
+    switch (kind) {
+    case copy_definition:
+        return "copy definition to target";
+    case remove_definition:
+        return "remove definition from source";
+    case validate_frontend:
+        return "repeat frontend analysis";
+    case build_and_test:
+        return "build and test affected project";
+    }
+    return "unknown";
+}
+
 void append_diagnostic(std::ostringstream& report, const analysis::FrontendDiagnostic& diagnostic) {
     report << "- " << diagnostic_severity_name(diagnostic.severity);
     if (!diagnostic.path.empty()) {
@@ -186,6 +226,40 @@ std::string format_text_report(const analysis::SourceFileInfo& info, std::uintma
                            << expansion.begin_line << '\n';
                 }
             }
+        }
+    }
+    return report.str();
+}
+
+std::string format_text_move_plan(const planning::MovePlan& plan) {
+    std::ostringstream report;
+    report << "Move plan: " << (plan ? "ready" : "blocked") << '\n';
+    report << "Read-only: " << (plan.read_only ? "yes" : "no") << '\n';
+    report << "Source: " << plan.source_path.string() << '\n';
+    report << "Target: " << plan.target_path.string() << '\n';
+    report << "Symbol ID: " << plan.symbol_id << '\n';
+    if (!plan.qualified_name.empty()) {
+        report << "Callable: " << plan.qualified_name << '\n';
+    }
+    if (plan.definition.has_value()) {
+        report << "Definition: lines " << plan.definition->begin_line << '-'
+               << plan.definition->end_line << ", offsets " << plan.definition->begin_offset << '-'
+               << plan.definition->end_offset << '\n';
+    }
+    if (!plan.blockers.empty()) {
+        report << "Blockers: " << plan.blockers.size() << '\n';
+        for (const auto& blocker : plan.blockers) {
+            report << "- " << blocker_kind_name(blocker.kind);
+            if (!blocker.detail.empty()) {
+                report << ": " << blocker.detail;
+            }
+            report << '\n';
+        }
+    }
+    if (!plan.steps.empty()) {
+        report << "Planned steps: " << plan.steps.size() << '\n';
+        for (std::size_t index = 0; index < plan.steps.size(); ++index) {
+            report << index + 1 << ". " << step_name(plan.steps[index].kind) << '\n';
         }
     }
     return report.str();

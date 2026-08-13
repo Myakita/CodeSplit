@@ -133,6 +133,46 @@ std::string_view include_kind_name(analysis::IncludeKind kind) {
     return "unknown";
 }
 
+std::string_view blocker_kind_name(planning::MovePlanBlockerKind kind) {
+    using enum planning::MovePlanBlockerKind;
+    switch (kind) {
+    case inventory_unavailable:
+        return "inventory_unavailable";
+    case symbol_not_found:
+        return "symbol_not_found";
+    case source_target_collision:
+        return "source_target_collision";
+    case not_free_function:
+        return "not_free_function";
+    case callable_constraint:
+        return "callable_constraint";
+    case non_external_linkage:
+        return "non_external_linkage";
+    case outgoing_dependency:
+        return "outgoing_dependency";
+    case incoming_dependency_without_declaration:
+        return "incoming_dependency_without_declaration";
+    case macro_dependency:
+        return "macro_dependency";
+    }
+    return "unknown";
+}
+
+std::string_view step_name(planning::MovePlanStepKind kind) {
+    using enum planning::MovePlanStepKind;
+    switch (kind) {
+    case copy_definition:
+        return "copy_definition";
+    case remove_definition:
+        return "remove_definition";
+    case validate_frontend:
+        return "validate_frontend";
+    case build_and_test:
+        return "build_and_test";
+    }
+    return "unknown";
+}
+
 void append_constraints(std::ostringstream& report,
                         const std::vector<analysis::CallableConstraint>& constraints) {
     report << '[';
@@ -376,6 +416,54 @@ std::string format_json_report(const analysis::SourceFileInfo& info, std::uintma
         report << "    ]\n";
     }
     report << "  }\n";
+    report << "}\n";
+    return report.str();
+}
+
+std::string format_json_move_plan(const planning::MovePlan& plan) {
+    std::ostringstream report;
+    report << "{\n";
+    report << "  \"status\": \"" << (plan ? "ready" : "blocked") << "\",\n";
+    report << "  \"read_only\": " << (plan.read_only ? "true" : "false") << ",\n";
+    report << "  \"source\": \"" << escape_json_string(path_to_utf8(plan.source_path)) << "\",\n";
+    report << "  \"target\": \"" << escape_json_string(path_to_utf8(plan.target_path)) << "\",\n";
+    report << "  \"symbol_id\": \"" << escape_json_string(plan.symbol_id) << "\",\n";
+    report << "  \"qualified_name\": \"" << escape_json_string(plan.qualified_name) << "\",\n";
+    report << "  \"definition\": ";
+    if (plan.definition.has_value()) {
+        report << "{\n";
+        report << "    \"path\": \"" << escape_json_string(path_to_utf8(plan.definition->path))
+               << "\",\n";
+        report << "    \"begin_offset\": " << plan.definition->begin_offset << ",\n";
+        report << "    \"end_offset\": " << plan.definition->end_offset << ",\n";
+        report << "    \"begin_line\": " << plan.definition->begin_line << ",\n";
+        report << "    \"end_line\": " << plan.definition->end_line << "\n";
+        report << "  },\n";
+    } else {
+        report << "null,\n";
+    }
+    report << "  \"blockers\": [";
+    if (!plan.blockers.empty()) {
+        report << '\n';
+        for (std::size_t index = 0; index < plan.blockers.size(); ++index) {
+            const auto& blocker = plan.blockers[index];
+            report << "    {\n";
+            report << "      \"kind\": \"" << blocker_kind_name(blocker.kind) << "\",\n";
+            report << "      \"detail\": \"" << escape_json_string(blocker.detail) << "\"\n";
+            report << "    }" << (index + 1 == plan.blockers.size() ? "\n" : ",\n");
+        }
+        report << "  ],\n";
+    } else {
+        report << "],\n";
+    }
+    report << "  \"steps\": [";
+    for (std::size_t index = 0; index < plan.steps.size(); ++index) {
+        if (index != 0) {
+            report << ", ";
+        }
+        report << '"' << step_name(plan.steps[index].kind) << '"';
+    }
+    report << "]\n";
     report << "}\n";
     return report.str();
 }

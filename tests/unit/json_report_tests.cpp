@@ -294,11 +294,69 @@ void escapes_special_characters_in_path() {
                  "JSON report should escape special path characters");
 }
 
+void formats_blocked_move_plan() {
+    const codesplit::planning::MovePlan plan{
+        .source_path = "src/large.cpp",
+        .target_path = "src/new.cpp",
+        .symbol_id = "c:@F@dependent#",
+        .qualified_name = "dependent",
+        .definition =
+            codesplit::analysis::SourceRange{
+                .path = "src/large.cpp",
+                .begin_offset = 20,
+                .end_offset = 80,
+                .begin_line = 3,
+                .end_line = 5,
+            },
+        .blockers =
+            {
+                {
+                    .kind = codesplit::planning::MovePlanBlockerKind::outgoing_dependency,
+                    .detail = "direct_call: helper",
+                },
+                {
+                    .kind = codesplit::planning::MovePlanBlockerKind::macro_dependency,
+                    .detail = "APPLY_OFFSET",
+                },
+            },
+    };
+
+    expect_equal(codesplit::reporting::format_json_move_plan(plan),
+                 "{\n"
+                 "  \"status\": \"blocked\",\n"
+                 "  \"read_only\": true,\n"
+                 "  \"source\": \"src/large.cpp\",\n"
+                 "  \"target\": \"src/new.cpp\",\n"
+                 "  \"symbol_id\": \"c:@F@dependent#\",\n"
+                 "  \"qualified_name\": \"dependent\",\n"
+                 "  \"definition\": {\n"
+                 "    \"path\": \"src/large.cpp\",\n"
+                 "    \"begin_offset\": 20,\n"
+                 "    \"end_offset\": 80,\n"
+                 "    \"begin_line\": 3,\n"
+                 "    \"end_line\": 5\n"
+                 "  },\n"
+                 "  \"blockers\": [\n"
+                 "    {\n"
+                 "      \"kind\": \"outgoing_dependency\",\n"
+                 "      \"detail\": \"direct_call: helper\"\n"
+                 "    },\n"
+                 "    {\n"
+                 "      \"kind\": \"macro_dependency\",\n"
+                 "      \"detail\": \"APPLY_OFFSET\"\n"
+                 "    }\n"
+                 "  ],\n"
+                 "  \"steps\": []\n"
+                 "}\n",
+                 "JSON move plan should expose structured blockers");
+}
+
 } // namespace
 
 int main() {
     formats_source_file_as_json();
     escapes_special_characters_in_path();
+    formats_blocked_move_plan();
 
     if (failure_count == 0) {
         std::cout << "All JSON-report tests passed.\n";

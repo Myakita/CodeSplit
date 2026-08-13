@@ -220,11 +220,51 @@ void formats_file_within_limit() {
                  "text report should show a file within the limit");
 }
 
+void formats_ready_move_plan() {
+    const codesplit::planning::MovePlan plan{
+        .source_path = "src/large.cpp",
+        .target_path = "src/isolated.cpp",
+        .symbol_id = "c:@F@isolated#I#",
+        .qualified_name = "isolated",
+        .definition =
+            codesplit::analysis::SourceRange{
+                .path = "src/large.cpp",
+                .begin_offset = 100,
+                .end_offset = 160,
+                .begin_line = 8,
+                .end_line = 10,
+            },
+        .steps =
+            {
+                {.kind = codesplit::planning::MovePlanStepKind::copy_definition},
+                {.kind = codesplit::planning::MovePlanStepKind::remove_definition},
+                {.kind = codesplit::planning::MovePlanStepKind::validate_frontend},
+                {.kind = codesplit::planning::MovePlanStepKind::build_and_test},
+            },
+    };
+
+    expect_equal(codesplit::reporting::format_text_move_plan(plan),
+                 "Move plan: ready\n"
+                 "Read-only: yes\n"
+                 "Source: src/large.cpp\n"
+                 "Target: src/isolated.cpp\n"
+                 "Symbol ID: c:@F@isolated#I#\n"
+                 "Callable: isolated\n"
+                 "Definition: lines 8-10, offsets 100-160\n"
+                 "Planned steps: 4\n"
+                 "1. copy definition to target\n"
+                 "2. remove definition from source\n"
+                 "3. repeat frontend analysis\n"
+                 "4. build and test affected project\n",
+                 "text move plan should expose ordered read-only steps");
+}
+
 } // namespace
 
 int main() {
     formats_source_file_information();
     formats_file_within_limit();
+    formats_ready_move_plan();
 
     if (failure_count == 0) {
         std::cout << "All text-report tests passed.\n";
