@@ -21,6 +21,7 @@ struct TextReplacement {
     std::filesystem::path path;
     std::uintmax_t begin_offset = 0;
     std::uintmax_t end_offset = 0;
+    std::string expected_text;
     std::string replacement_text;
 };
 

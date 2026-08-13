@@ -74,7 +74,10 @@ MoveDryRun draft_callable_move(const MovePlan& plan) {
         source_text.substr(static_cast<std::size_t>(begin), static_cast<std::size_t>(end - begin));
     const auto line_ending = line_ending_for(source_text, static_cast<std::size_t>(end));
     dry_run.replacements = {
-        {.path = plan.source_path, .begin_offset = begin, .end_offset = end},
+        {.path = plan.source_path,
+         .begin_offset = begin,
+         .end_offset = end,
+         .expected_text = definition},
         {.path = plan.target_path,
          .begin_offset = 0,
          .end_offset = 0,
