@@ -191,6 +191,7 @@ Docker не входит в MVP: утилите нужен прямой дост
 - [протокол ручной проверки](docs/manual-verification.md);
 - [контракт CLI и JSON](docs/cli-contract.md);
 - [приёмка MVP 0.1.0](docs/mvp-acceptance.md);
+- [интеграция локального ИИ через Python MCP-сервер](docs/ai-mcp-integration.md);
 - [план развития](docs/roadmap.md).
 
 ## Лицензия
