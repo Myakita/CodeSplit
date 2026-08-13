@@ -156,6 +156,8 @@ std::string_view apply_blocker_name(planning::MoveApplyBlockerKind kind) {
         return "staging failed";
     case commit_failed:
         return "commit failed";
+    case validation_failed:
+        return "validation failed";
     case rollback_failed:
         return "rollback failed";
     }
@@ -356,6 +358,7 @@ std::string format_text_move_apply(const planning::MoveApplyResult& result) {
     report << "Source: " << result.dry_run.plan.source_path.string() << '\n';
     report << "Target: " << result.dry_run.plan.target_path.string() << '\n';
     report << "Symbol ID: " << result.dry_run.plan.symbol_id << '\n';
+    report << "Validated: " << (result.validated ? "yes" : "no") << '\n';
     report << "Rolled back: " << (result.rolled_back ? "yes" : "no") << '\n';
     if (!result.blockers.empty()) {
         report << "Blockers: " << result.blockers.size() << '\n';

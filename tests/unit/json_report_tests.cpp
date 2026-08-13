@@ -393,6 +393,7 @@ void formats_blocked_move_apply() {
         "{\n"
         "  \"status\": \"blocked\",\n"
         "  \"applied\": false,\n"
+        "  \"validated\": false,\n"
         "  \"rolled_back\": false,\n"
         "  \"source\": \"src/large.cpp\",\n"
         "  \"target\": \"src/isolated.cpp\",\n"

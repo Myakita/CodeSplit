@@ -7,7 +7,11 @@
 #include "codesplit/reporting/json_report.hpp"
 #include "codesplit/reporting/text_report.hpp"
 
+#include <algorithm>
 #include <iostream>
+#include <string>
+#include <string_view>
+#include <utility>
 
 int main(int argc, char* argv[]) {
     const auto command = codesplit::cli::parse_command_line(argc, argv);
@@ -49,7 +53,39 @@ int main(int argc, char* argv[]) {
             command.operation == codesplit::cli::Operation::apply_move) {
             const auto dry_run = codesplit::planning::draft_callable_move(plan);
             if (command.operation == codesplit::cli::Operation::apply_move) {
-                const auto result = codesplit::planning::apply_callable_move(dry_run);
+                const auto validator = [&](const std::filesystem::path& source_path,
+                                           const std::filesystem::path& target_path) {
+                    const auto validation_failure = [](std::string_view label,
+                                                       const auto& validation) {
+                        auto detail =
+                            std::string{label} + " validation failed: " + validation.error;
+                        const auto diagnostic =
+                            std::ranges::find_if(validation.diagnostics, [](const auto& candidate) {
+                                using codesplit::analysis::FrontendDiagnosticSeverity;
+                                return candidate.severity == FrontendDiagnosticSeverity::error ||
+                                       candidate.severity == FrontendDiagnosticSeverity::fatal;
+                            });
+                        if (diagnostic != validation.diagnostics.end()) {
+                            detail += ": " + diagnostic->message;
+                        }
+                        return codesplit::planning::MoveValidationResult{.detail =
+                                                                             std::move(detail)};
+                    };
+                    const auto validated_source = codesplit::analysis::inventory_callables(
+                        inventory.compilation.command, command.input_path, source_path,
+                        size_limit_bytes);
+                    if (!validated_source) {
+                        return validation_failure("source", validated_source);
+                    }
+                    const auto validated_target = codesplit::analysis::inventory_callables(
+                        inventory.compilation.command, command.input_path, target_path,
+                        size_limit_bytes);
+                    if (!validated_target) {
+                        return validation_failure("target", validated_target);
+                    }
+                    return codesplit::planning::MoveValidationResult{.success = true};
+                };
+                const auto result = codesplit::planning::apply_callable_move(dry_run, validator);
                 if (command.report_format == codesplit::cli::ReportFormat::json) {
                     std::cout << codesplit::reporting::format_json_move_apply(result);
                 } else {

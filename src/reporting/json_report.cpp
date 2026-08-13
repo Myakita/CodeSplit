@@ -205,6 +205,8 @@ std::string_view apply_blocker_name(planning::MoveApplyBlockerKind kind) {
         return "staging_failed";
     case commit_failed:
         return "commit_failed";
+    case validation_failed:
+        return "validation_failed";
     case rollback_failed:
         return "rollback_failed";
     }
@@ -579,6 +581,7 @@ std::string format_json_move_apply(const planning::MoveApplyResult& result) {
     report << "{\n";
     report << "  \"status\": \"" << (result ? "applied" : "blocked") << "\",\n";
     report << "  \"applied\": " << (result.applied ? "true" : "false") << ",\n";
+    report << "  \"validated\": " << (result.validated ? "true" : "false") << ",\n";
     report << "  \"rolled_back\": " << (result.rolled_back ? "true" : "false") << ",\n";
     report << "  \"source\": \""
            << escape_json_string(path_to_utf8(result.dry_run.plan.source_path)) << "\",\n";

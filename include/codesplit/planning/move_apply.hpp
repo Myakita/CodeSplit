@@ -2,6 +2,7 @@
 
 #include "codesplit/planning/move_dry_run.hpp"
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -13,6 +14,7 @@ enum class MoveApplyBlockerKind {
     source_changed,
     staging_failed,
     commit_failed,
+    validation_failed,
     rollback_failed,
 };
 
@@ -26,11 +28,21 @@ struct MoveApplyResult {
     std::vector<MoveApplyBlocker> blockers;
     std::vector<std::string> warnings;
     bool applied = false;
+    bool validated = false;
     bool rolled_back = false;
 
     [[nodiscard]] explicit operator bool() const noexcept { return applied && blockers.empty(); }
 };
 
-[[nodiscard]] MoveApplyResult apply_callable_move(const MoveDryRun& dry_run);
+struct MoveValidationResult {
+    bool success = false;
+    std::string detail;
+};
+
+using MoveValidator = std::function<MoveValidationResult(const std::filesystem::path& source_path,
+                                                         const std::filesystem::path& target_path)>;
+
+[[nodiscard]] MoveApplyResult apply_callable_move(const MoveDryRun& dry_run,
+                                                  const MoveValidator& validator = {});
 
 } // namespace codesplit::planning

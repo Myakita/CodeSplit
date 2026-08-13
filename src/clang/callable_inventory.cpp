@@ -665,22 +665,45 @@ void remove_compile_only_arguments(clang::tooling::CompileCommand& command) {
                   [](const std::string& argument) { return argument == "/c" || argument == "-c"; });
 }
 
-} // namespace
+std::filesystem::path normalized_command_path(const std::filesystem::path& working_directory,
+                                              const std::filesystem::path& path) {
+    std::error_code error;
+    const auto absolute = path.is_absolute() ? path : working_directory / path;
+    const auto canonical = std::filesystem::weakly_canonical(absolute, error);
+    return (error ? absolute : canonical).lexically_normal();
+}
 
-CallableInventoryResult inventory_callables(const std::filesystem::path& build_path,
-                                            const std::filesystem::path& source_path,
-                                            std::uintmax_t size_limit_bytes) {
-    CallableInventoryResult result;
-    auto lookup = detail::find_compilation_command(build_path, source_path);
-    if (!lookup) {
-        result.compilation.error = lookup.error;
-        result.error = lookup.error;
-        return result;
+clang::tooling::CompileCommand adapted_command(const CompilationCommand& command,
+                                               const std::filesystem::path& command_source_path,
+                                               const std::filesystem::path& source_path) {
+    clang::tooling::CompileCommand adapted{
+        detail::path_to_utf8(command.working_directory),
+        detail::path_to_utf8(source_path),
+        command.arguments,
+        {},
+    };
+    const auto normalized_original =
+        normalized_command_path(command.working_directory, command_source_path);
+    for (auto& argument : adapted.CommandLine) {
+        if (argument.empty() || argument.front() == '-') {
+            continue;
+        }
+        const std::filesystem::path candidate{argument};
+        if (normalized_command_path(command.working_directory, candidate) == normalized_original) {
+            argument = detail::path_to_utf8(source_path);
+        }
     }
+    return adapted;
+}
 
-    result.compilation = public_command(lookup.command);
-    remove_compile_only_arguments(lookup.command);
-    SingleCommandDatabase database{std::move(lookup.command)};
+CallableInventoryResult run_inventory(clang::tooling::CompileCommand command,
+                                      const std::filesystem::path& source_path,
+                                      std::uintmax_t size_limit_bytes,
+                                      CompilationCommandResult public_compilation) {
+    CallableInventoryResult result;
+    result.compilation = std::move(public_compilation);
+    remove_compile_only_arguments(command);
+    SingleCommandDatabase database{std::move(command)};
     clang::tooling::ClangTool tool{database, {detail::path_to_utf8(source_path)}};
     CollectingDiagnosticConsumer diagnostic_consumer{result.diagnostics};
     tool.setDiagnosticConsumer(&diagnostic_consumer);
@@ -695,9 +718,34 @@ CallableInventoryResult inventory_callables(const std::filesystem::path& build_p
     } else {
         associate_macro_dependencies(result.callables, macro_expansions, result.macros);
     }
-
     std::ranges::sort(result.callables, {}, &CallableDefinition::begin_offset);
     return result;
+}
+
+} // namespace
+
+CallableInventoryResult inventory_callables(const std::filesystem::path& build_path,
+                                            const std::filesystem::path& source_path,
+                                            std::uintmax_t size_limit_bytes) {
+    CallableInventoryResult result;
+    auto lookup = detail::find_compilation_command(build_path, source_path);
+    if (!lookup) {
+        result.compilation.error = lookup.error;
+        result.error = lookup.error;
+        return result;
+    }
+
+    auto compilation = public_command(lookup.command);
+    return run_inventory(std::move(lookup.command), source_path, size_limit_bytes,
+                         std::move(compilation));
+}
+
+CallableInventoryResult inventory_callables(const CompilationCommand& command,
+                                            const std::filesystem::path& command_source_path,
+                                            const std::filesystem::path& source_path,
+                                            std::uintmax_t size_limit_bytes) {
+    auto adapted = adapted_command(command, command_source_path, source_path);
+    return run_inventory(std::move(adapted), source_path, size_limit_bytes, {.command = command});
 }
 
 } // namespace codesplit::analysis

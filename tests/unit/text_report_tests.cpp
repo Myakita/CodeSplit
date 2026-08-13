@@ -299,6 +299,7 @@ void formats_successful_move_apply() {
                  "Source: src/large.cpp\n"
                  "Target: src/isolated.cpp\n"
                  "Symbol ID: c:@F@isolated#\n"
+                 "Validated: no\n"
                  "Rolled back: no\n",
                  "text apply report should confirm committed paths");
 }

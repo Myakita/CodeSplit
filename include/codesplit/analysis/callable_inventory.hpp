@@ -98,4 +98,9 @@ struct CallableInventoryResult {
                                                           const std::filesystem::path& source_path,
                                                           std::uintmax_t size_limit_bytes);
 
+[[nodiscard]] CallableInventoryResult
+inventory_callables(const CompilationCommand& command,
+                    const std::filesystem::path& command_source_path,
+                    const std::filesystem::path& source_path, std::uintmax_t size_limit_bytes);
+
 } // namespace codesplit::analysis

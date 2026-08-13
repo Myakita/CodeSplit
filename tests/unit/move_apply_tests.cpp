@@ -112,10 +112,31 @@ void rejects_blocked_dry_run() {
            "application should preserve the dry-run safety boundary");
 }
 
+void rolls_back_failed_validation() {
+    TemporaryDirectory directory;
+    const auto source = directory.path() / "source.cpp";
+    const auto target = directory.path() / "target.cpp";
+    const auto dry_run = create_dry_run(source, target);
+    const auto original_source = read_file(source);
+
+    const auto result = codesplit::planning::apply_callable_move(dry_run, [](const auto&,
+                                                                             const auto&) {
+        return codesplit::planning::MoveValidationResult{.detail = "synthetic frontend failure"};
+    });
+
+    expect(!result, "failed validation should reject application");
+    expect(result.rolled_back, "failed validation should restore the source backup");
+    expect(result.blockers[0].kind == codesplit::planning::MoveApplyBlockerKind::validation_failed,
+           "result should identify validation failure");
+    expect(read_file(source) == original_source, "rollback should restore exact source bytes");
+    expect(!std::filesystem::exists(target), "rollback should remove generated target");
+}
+
 } // namespace
 
 int main() {
     applies_staged_files_and_removes_backup();
     rejects_source_changed_after_dry_run();
     rejects_blocked_dry_run();
+    rolls_back_failed_validation();
 }

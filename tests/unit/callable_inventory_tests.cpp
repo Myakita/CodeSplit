@@ -606,6 +606,23 @@ void rejects_missing_compilation_database() {
            "inventory error should explain the missing database");
 }
 
+void adapts_compilation_command_for_generated_source() {
+    const TemporaryProject project;
+    const auto original =
+        codesplit::analysis::inventory_callables(project.build_path(), project.source_path(), 1024);
+    const auto generated_path = project.source_path().parent_path() / "generated.cpp";
+    std::ofstream{generated_path}
+        << "#include \"worker.hpp\"\nnamespace sample { int generated() { return 7; } }\n";
+
+    const auto generated = codesplit::analysis::inventory_callables(
+        original.compilation.command, project.source_path(), generated_path, 1024);
+
+    expect(static_cast<bool>(generated),
+           "generated source should reuse an adapted compilation command");
+    expect(find_callable(generated, "sample::generated") != nullptr,
+           "adapted command should analyze the generated path instead of the original source");
+}
+
 } // namespace
 
 int main() {
@@ -616,6 +633,7 @@ int main() {
     inventories_direct_macro_dependencies();
     inventories_c_and_cpp_language_standards();
     rejects_missing_compilation_database();
+    adapts_compilation_command_for_generated_source();
 
     if (failure_count == 0) {
         std::cout << "All callable-inventory tests passed.\n";

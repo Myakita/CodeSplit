@@ -1,5 +1,6 @@
 #include "codesplit/planning/move_apply.hpp"
 
+#include <exception>
 #include <fstream>
 #include <iterator>
 #include <optional>
@@ -39,7 +40,7 @@ void remove_if_present(const std::filesystem::path& path) {
 
 } // namespace
 
-MoveApplyResult apply_callable_move(const MoveDryRun& dry_run) {
+MoveApplyResult apply_callable_move(const MoveDryRun& dry_run, const MoveValidator& validator) {
     MoveApplyResult result{.dry_run = dry_run};
     if (!dry_run) {
         add_blocker(result, MoveApplyBlockerKind::dry_run_blocked, "dry run contains blockers");
@@ -131,6 +132,28 @@ MoveApplyResult apply_callable_move(const MoveDryRun& dry_run) {
                                    : MoveApplyBlockerKind::commit_failed,
                     rollback_error ? rollback_error.message() : error.message());
         return result;
+    }
+
+    if (validator) {
+        MoveValidationResult validation;
+        try {
+            validation = validator(removal.path, insertion.path);
+        } catch (const std::exception& exception) {
+            validation.detail = exception.what();
+        }
+        if (!validation.success) {
+            remove_if_present(removal.path);
+            remove_if_present(insertion.path);
+            std::error_code rollback_error;
+            std::filesystem::rename(source_backup, removal.path, rollback_error);
+            result.rolled_back = !rollback_error;
+            add_blocker(result,
+                        rollback_error ? MoveApplyBlockerKind::rollback_failed
+                                       : MoveApplyBlockerKind::validation_failed,
+                        rollback_error ? rollback_error.message() : validation.detail);
+            return result;
+        }
+        result.validated = true;
     }
 
     result.applied = true;
