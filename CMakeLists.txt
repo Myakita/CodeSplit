@@ -13,6 +13,7 @@ option(CODESPLIT_ENABLE_CLANG "Enable Clang LibTooling integration when availabl
 add_library(codesplit_core
     src/analysis/source_file.cpp
     src/cli/command_line.cpp
+    src/planning/cmake_integration.cpp
     src/planning/move_apply.cpp
     src/planning/move_dry_run.cpp
     src/planning/move_plan.cpp
@@ -108,7 +109,10 @@ endif()
 
 add_executable(codesplit app/main.cpp)
 target_link_libraries(codesplit PRIVATE codesplit_core codesplit_clang)
-target_compile_definitions(codesplit PRIVATE CODESPLIT_VERSION="${PROJECT_VERSION}")
+target_compile_definitions(codesplit PRIVATE
+    CODESPLIT_VERSION="${PROJECT_VERSION}"
+    CODESPLIT_CMAKE_COMMAND="${CMAKE_COMMAND}"
+)
 
 if(CODESPLIT_BUILD_TESTS)
     enable_testing()

@@ -1,6 +1,7 @@
 #include "codesplit/analysis/callable_inventory.hpp"
 #include "codesplit/analysis/source_file.hpp"
 #include "codesplit/cli/command_line.hpp"
+#include "codesplit/planning/cmake_integration.hpp"
 #include "codesplit/planning/move_apply.hpp"
 #include "codesplit/planning/move_dry_run.hpp"
 #include "codesplit/planning/move_plan.hpp"
@@ -8,10 +9,72 @@
 #include "codesplit/reporting/text_report.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 #include <string_view>
 #include <utility>
+
+namespace {
+
+std::string shell_quote(const std::string& value) {
+#ifdef _WIN32
+    if (value.find_first_of("\"&|<>^") != std::string::npos) {
+        return {};
+    }
+    return '"' + value + '"';
+#else
+    std::string quoted{"'"};
+    for (const auto character : value) {
+        quoted += character == '\'' ? "'\\''" : std::string(1, character);
+    }
+    return quoted + '\'';
+#endif
+}
+
+int run_shell_command(std::string command) {
+#ifdef _WIN32
+    command += " >NUL 2>&1";
+    command = '"' + command + '"';
+#else
+    command += " >/dev/null 2>&1";
+#endif
+    return std::system(command.c_str());
+}
+
+codesplit::planning::MoveValidationResult validate_build(const std::filesystem::path& build_path,
+                                                         const std::string& target_name) {
+    const auto quoted_cmake = shell_quote(CODESPLIT_CMAKE_COMMAND);
+    const auto quoted_build = shell_quote(build_path.string());
+    if (quoted_cmake.empty() || quoted_build.empty() || target_name.empty()) {
+        return {.detail = "build command contains unsupported shell characters"};
+    }
+    const auto command = quoted_cmake + " --build " + quoted_build + " --target " + target_name;
+    const auto exit_code = run_shell_command(command);
+    return {
+        .success = exit_code == 0,
+        .detail = exit_code == 0 ? std::string{} : "CMake target build failed",
+    };
+}
+
+codesplit::planning::MoveValidationResult
+restore_cmake_build_graph(const std::filesystem::path& project_root,
+                          const std::filesystem::path& build_path) {
+    const auto quoted_cmake = shell_quote(CODESPLIT_CMAKE_COMMAND);
+    const auto quoted_source = shell_quote(project_root.string());
+    const auto quoted_build = shell_quote(build_path.string());
+    if (quoted_cmake.empty() || quoted_source.empty() || quoted_build.empty()) {
+        return {.detail = "CMake configure command contains unsupported shell characters"};
+    }
+    const auto command = quoted_cmake + " -S " + quoted_source + " -B " + quoted_build;
+    const auto exit_code = run_shell_command(command);
+    return {
+        .success = exit_code == 0,
+        .detail = exit_code == 0 ? std::string{} : "CMake build graph restore failed",
+    };
+}
+
+} // namespace
 
 int main(int argc, char* argv[]) {
     const auto command = codesplit::cli::parse_command_line(argc, argv);
@@ -51,7 +114,13 @@ int main(int argc, char* argv[]) {
             command.input_path, command.target_path, command.symbol_id, inventory);
         if (command.operation == codesplit::cli::Operation::dry_run_move ||
             command.operation == codesplit::cli::Operation::apply_move) {
-            const auto dry_run = codesplit::planning::draft_callable_move(plan);
+            auto dry_run = codesplit::planning::draft_callable_move(plan);
+            if (dry_run) {
+                const auto integration = codesplit::planning::plan_cmake_integration(
+                    command.build_path, inventory.compilation.command, command.target_path);
+                codesplit::planning::add_cmake_integration(dry_run, integration,
+                                                           command.build_path);
+            }
             if (command.operation == codesplit::cli::Operation::apply_move) {
                 const auto validator = [&](const std::filesystem::path& source_path,
                                            const std::filesystem::path& target_path) {
@@ -83,9 +152,13 @@ int main(int argc, char* argv[]) {
                     if (!validated_target) {
                         return validation_failure("target", validated_target);
                     }
-                    return codesplit::planning::MoveValidationResult{.success = true};
+                    return validate_build(dry_run.build_path, dry_run.build_target);
                 };
-                const auto result = codesplit::planning::apply_callable_move(dry_run, validator);
+                const auto rollback_action = [&] {
+                    return restore_cmake_build_graph(dry_run.project_root, dry_run.build_path);
+                };
+                const auto result =
+                    codesplit::planning::apply_callable_move(dry_run, validator, rollback_action);
                 if (command.report_format == codesplit::cli::ReportFormat::json) {
                     std::cout << codesplit::reporting::format_json_move_apply(result);
                 } else {

@@ -135,6 +135,8 @@ std::string_view dry_run_blocker_name(planning::MoveDryRunBlockerKind kind) {
         return "source read failed";
     case target_exists:
         return "target exists";
+    case build_integration_unavailable:
+        return "build integration unavailable";
     case invalid_source_range:
         return "invalid source range";
     case overlapping_replacements:
@@ -335,6 +337,9 @@ std::string format_text_move_dry_run(const planning::MoveDryRun& dry_run) {
     report << "Source: " << dry_run.plan.source_path.string() << '\n';
     report << "Target: " << dry_run.plan.target_path.string() << '\n';
     report << "Symbol ID: " << dry_run.plan.symbol_id << '\n';
+    if (!dry_run.build_target.empty()) {
+        report << "Build target: " << dry_run.build_target << '\n';
+    }
     if (!dry_run.blockers.empty()) {
         report << "Blockers: " << dry_run.blockers.size() << '\n';
         for (const auto& blocker : dry_run.blockers) {
@@ -358,6 +363,9 @@ std::string format_text_move_apply(const planning::MoveApplyResult& result) {
     report << "Source: " << result.dry_run.plan.source_path.string() << '\n';
     report << "Target: " << result.dry_run.plan.target_path.string() << '\n';
     report << "Symbol ID: " << result.dry_run.plan.symbol_id << '\n';
+    if (!result.dry_run.build_target.empty()) {
+        report << "Build target: " << result.dry_run.build_target << '\n';
+    }
     report << "Validated: " << (result.validated ? "yes" : "no") << '\n';
     report << "Rolled back: " << (result.rolled_back ? "yes" : "no") << '\n';
     if (!result.blockers.empty()) {

@@ -184,6 +184,8 @@ std::string_view dry_run_blocker_name(planning::MoveDryRunBlockerKind kind) {
         return "source_read_failed";
     case target_exists:
         return "target_exists";
+    case build_integration_unavailable:
+        return "build_integration_unavailable";
     case invalid_source_range:
         return "invalid_source_range";
     case overlapping_replacements:
@@ -541,6 +543,11 @@ std::string format_json_move_dry_run(const planning::MoveDryRun& dry_run) {
     report << "  \"target\": \"" << escape_json_string(path_to_utf8(dry_run.plan.target_path))
            << "\",\n";
     report << "  \"symbol_id\": \"" << escape_json_string(dry_run.plan.symbol_id) << "\",\n";
+    if (dry_run.build_target.empty()) {
+        report << "  \"build_target\": null,\n";
+    } else {
+        report << "  \"build_target\": \"" << escape_json_string(dry_run.build_target) << "\",\n";
+    }
     report << "  \"blockers\": [";
     if (!dry_run.blockers.empty()) {
         report << '\n';
@@ -588,6 +595,12 @@ std::string format_json_move_apply(const planning::MoveApplyResult& result) {
     report << "  \"target\": \""
            << escape_json_string(path_to_utf8(result.dry_run.plan.target_path)) << "\",\n";
     report << "  \"symbol_id\": \"" << escape_json_string(result.dry_run.plan.symbol_id) << "\",\n";
+    if (result.dry_run.build_target.empty()) {
+        report << "  \"build_target\": null,\n";
+    } else {
+        report << "  \"build_target\": \"" << escape_json_string(result.dry_run.build_target)
+               << "\",\n";
+    }
     report << "  \"blockers\": [";
     for (std::size_t index = 0; index < result.blockers.size(); ++index) {
         const auto& blocker = result.blockers[index];

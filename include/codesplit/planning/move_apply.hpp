@@ -41,8 +41,10 @@ struct MoveValidationResult {
 
 using MoveValidator = std::function<MoveValidationResult(const std::filesystem::path& source_path,
                                                          const std::filesystem::path& target_path)>;
+using MoveRollbackAction = std::function<MoveValidationResult()>;
 
 [[nodiscard]] MoveApplyResult apply_callable_move(const MoveDryRun& dry_run,
-                                                  const MoveValidator& validator = {});
+                                                  const MoveValidator& validator = {},
+                                                  const MoveRollbackAction& rollback_action = {});
 
 } // namespace codesplit::planning

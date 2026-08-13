@@ -132,6 +132,43 @@ void rolls_back_failed_validation() {
     expect(!std::filesystem::exists(target), "rollback should remove generated target");
 }
 
+void rolls_back_build_file_and_runs_compensation() {
+    TemporaryDirectory directory;
+    const auto source = directory.path() / "source.cpp";
+    const auto target = directory.path() / "target.cpp";
+    const auto cmake_file = directory.path() / "CMakeLists.txt";
+    const std::string cmake_text = "add_library(core source.cpp)\n";
+    std::ofstream{cmake_file, std::ios::binary} << cmake_text;
+    auto dry_run = create_dry_run(source, target);
+    dry_run.replacements.push_back({
+        .path = cmake_file,
+        .begin_offset = 0,
+        .end_offset = cmake_text.size(),
+        .expected_text = cmake_text,
+        .replacement_text = cmake_text + "target_sources(core PRIVATE target.cpp)\n",
+    });
+    bool compensation_called = false;
+
+    const auto result = codesplit::planning::apply_callable_move(
+        dry_run,
+        [&](const auto&, const auto&) {
+            expect(read_file(cmake_file).find("target_sources") != std::string::npos,
+                   "validator should observe the integrated build file");
+            return codesplit::planning::MoveValidationResult{.detail = "build failed"};
+        },
+        [&] {
+            compensation_called = true;
+            expect(read_file(cmake_file) == cmake_text,
+                   "compensation should run after the build file is restored");
+            return codesplit::planning::MoveValidationResult{.success = true};
+        });
+
+    expect(!result, "failed build validation should reject application");
+    expect(result.rolled_back, "source and build files should be restored");
+    expect(compensation_called, "rollback should compensate derived build state");
+    expect(read_file(cmake_file) == cmake_text, "rollback should restore exact CMake bytes");
+}
+
 } // namespace
 
 int main() {
@@ -139,4 +176,5 @@ int main() {
     rejects_source_changed_after_dry_run();
     rejects_blocked_dry_run();
     rolls_back_failed_validation();
+    rolls_back_build_file_and_runs_compensation();
 }

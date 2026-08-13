@@ -13,6 +13,7 @@ enum class MoveDryRunBlockerKind {
     plan_blocked,
     source_read_failed,
     target_exists,
+    build_integration_unavailable,
     invalid_source_range,
     overlapping_replacements,
 };
@@ -34,6 +35,9 @@ struct MoveDryRun {
     MovePlan plan;
     std::vector<TextReplacement> replacements;
     std::vector<MoveDryRunBlocker> blockers;
+    std::filesystem::path build_path;
+    std::filesystem::path project_root;
+    std::string build_target;
     bool read_only = true;
 
     [[nodiscard]] explicit operator bool() const noexcept { return blockers.empty(); }
