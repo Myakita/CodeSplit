@@ -173,6 +173,23 @@ std::string_view step_name(planning::MovePlanStepKind kind) {
     return "unknown";
 }
 
+std::string_view dry_run_blocker_name(planning::MoveDryRunBlockerKind kind) {
+    using enum planning::MoveDryRunBlockerKind;
+    switch (kind) {
+    case plan_blocked:
+        return "plan_blocked";
+    case source_read_failed:
+        return "source_read_failed";
+    case target_exists:
+        return "target_exists";
+    case invalid_source_range:
+        return "invalid_source_range";
+    case overlapping_replacements:
+        return "overlapping_replacements";
+    }
+    return "unknown";
+}
+
 void append_constraints(std::ostringstream& report,
                         const std::vector<analysis::CallableConstraint>& constraints) {
     report << '[';
@@ -464,6 +481,51 @@ std::string format_json_move_plan(const planning::MovePlan& plan) {
         report << '"' << step_name(plan.steps[index].kind) << '"';
     }
     report << "]\n";
+    report << "}\n";
+    return report.str();
+}
+
+std::string format_json_move_dry_run(const planning::MoveDryRun& dry_run) {
+    std::ostringstream report;
+    report << "{\n";
+    report << "  \"status\": \"" << (dry_run ? "ready" : "blocked") << "\",\n";
+    report << "  \"read_only\": " << (dry_run.read_only ? "true" : "false") << ",\n";
+    report << "  \"source\": \"" << escape_json_string(path_to_utf8(dry_run.plan.source_path))
+           << "\",\n";
+    report << "  \"target\": \"" << escape_json_string(path_to_utf8(dry_run.plan.target_path))
+           << "\",\n";
+    report << "  \"symbol_id\": \"" << escape_json_string(dry_run.plan.symbol_id) << "\",\n";
+    report << "  \"blockers\": [";
+    if (!dry_run.blockers.empty()) {
+        report << '\n';
+        for (std::size_t index = 0; index < dry_run.blockers.size(); ++index) {
+            const auto& blocker = dry_run.blockers[index];
+            report << "    {\"kind\": \"" << dry_run_blocker_name(blocker.kind)
+                   << "\", \"detail\": \"" << escape_json_string(blocker.detail) << "\"}"
+                   << (index + 1 == dry_run.blockers.size() ? "\n" : ",\n");
+        }
+        report << "  ],\n";
+    } else {
+        report << "],\n";
+    }
+    report << "  \"replacements\": [";
+    if (!dry_run.replacements.empty()) {
+        report << '\n';
+        for (std::size_t index = 0; index < dry_run.replacements.size(); ++index) {
+            const auto& replacement = dry_run.replacements[index];
+            report << "    {\n";
+            report << "      \"path\": \"" << escape_json_string(path_to_utf8(replacement.path))
+                   << "\",\n";
+            report << "      \"begin_offset\": " << replacement.begin_offset << ",\n";
+            report << "      \"end_offset\": " << replacement.end_offset << ",\n";
+            report << "      \"replacement_text\": \""
+                   << escape_json_string(replacement.replacement_text) << "\"\n";
+            report << "    }" << (index + 1 == dry_run.replacements.size() ? "\n" : ",\n");
+        }
+        report << "  ]\n";
+    } else {
+        report << "]\n";
+    }
     report << "}\n";
     return report.str();
 }

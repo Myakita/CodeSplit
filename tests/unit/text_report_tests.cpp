@@ -259,12 +259,40 @@ void formats_ready_move_plan() {
                  "text move plan should expose ordered read-only steps");
 }
 
+void formats_move_dry_run() {
+    const codesplit::planning::MoveDryRun dry_run{
+        .plan = {.source_path = "src/large.cpp",
+                 .target_path = "src/isolated.cpp",
+                 .symbol_id = "c:@F@isolated#"},
+        .replacements =
+            {
+                {.path = "src/large.cpp", .begin_offset = 10, .end_offset = 40},
+                {.path = "src/isolated.cpp",
+                 .begin_offset = 0,
+                 .end_offset = 0,
+                 .replacement_text = "int isolated() {}\n"},
+            },
+    };
+
+    expect_equal(codesplit::reporting::format_text_move_dry_run(dry_run),
+                 "Move dry run: ready\n"
+                 "Read-only: yes\n"
+                 "Source: src/large.cpp\n"
+                 "Target: src/isolated.cpp\n"
+                 "Symbol ID: c:@F@isolated#\n"
+                 "Replacements: 2\n"
+                 "- src/large.cpp: offsets 10-40, insert 0 bytes\n"
+                 "- src/isolated.cpp: offsets 0-0, insert 18 bytes\n",
+                 "text dry run should expose replacement ranges without applying them");
+}
+
 } // namespace
 
 int main() {
     formats_source_file_information();
     formats_file_within_limit();
     formats_ready_move_plan();
+    formats_move_dry_run();
 
     if (failure_count == 0) {
         std::cout << "All text-report tests passed.\n";

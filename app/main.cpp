@@ -1,6 +1,7 @@
 #include "codesplit/analysis/callable_inventory.hpp"
 #include "codesplit/analysis/source_file.hpp"
 #include "codesplit/cli/command_line.hpp"
+#include "codesplit/planning/move_dry_run.hpp"
 #include "codesplit/planning/move_plan.hpp"
 #include "codesplit/reporting/json_report.hpp"
 #include "codesplit/reporting/text_report.hpp"
@@ -38,9 +39,19 @@ int main(int argc, char* argv[]) {
     const auto inventory = codesplit::analysis::inventory_callables(
         command.build_path, command.input_path, size_limit_bytes);
 
-    if (command.operation == codesplit::cli::Operation::plan_move) {
+    if (command.operation == codesplit::cli::Operation::plan_move ||
+        command.operation == codesplit::cli::Operation::dry_run_move) {
         const auto plan = codesplit::planning::plan_callable_move(
             command.input_path, command.target_path, command.symbol_id, inventory);
+        if (command.operation == codesplit::cli::Operation::dry_run_move) {
+            const auto dry_run = codesplit::planning::draft_callable_move(plan);
+            if (command.report_format == codesplit::cli::ReportFormat::json) {
+                std::cout << codesplit::reporting::format_json_move_dry_run(dry_run);
+            } else {
+                std::cout << codesplit::reporting::format_text_move_dry_run(dry_run);
+            }
+            return dry_run ? 0 : 3;
+        }
         if (command.report_format == codesplit::cli::ReportFormat::json) {
             std::cout << codesplit::reporting::format_json_move_plan(plan);
         } else {

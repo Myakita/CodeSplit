@@ -9,6 +9,7 @@ namespace codesplit::cli {
 enum class Operation {
     analyze,
     plan_move,
+    dry_run_move,
 };
 
 enum class ReportFormat {

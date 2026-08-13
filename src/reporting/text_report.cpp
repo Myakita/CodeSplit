@@ -124,6 +124,23 @@ std::string_view step_name(planning::MovePlanStepKind kind) {
     return "unknown";
 }
 
+std::string_view dry_run_blocker_name(planning::MoveDryRunBlockerKind kind) {
+    using enum planning::MoveDryRunBlockerKind;
+    switch (kind) {
+    case plan_blocked:
+        return "plan blocked";
+    case source_read_failed:
+        return "source read failed";
+    case target_exists:
+        return "target exists";
+    case invalid_source_range:
+        return "invalid source range";
+    case overlapping_replacements:
+        return "overlapping replacements";
+    }
+    return "unknown";
+}
+
 void append_diagnostic(std::ostringstream& report, const analysis::FrontendDiagnostic& diagnostic) {
     report << "- " << diagnostic_severity_name(diagnostic.severity);
     if (!diagnostic.path.empty()) {
@@ -260,6 +277,30 @@ std::string format_text_move_plan(const planning::MovePlan& plan) {
         report << "Planned steps: " << plan.steps.size() << '\n';
         for (std::size_t index = 0; index < plan.steps.size(); ++index) {
             report << index + 1 << ". " << step_name(plan.steps[index].kind) << '\n';
+        }
+    }
+    return report.str();
+}
+
+std::string format_text_move_dry_run(const planning::MoveDryRun& dry_run) {
+    std::ostringstream report;
+    report << "Move dry run: " << (dry_run ? "ready" : "blocked") << '\n';
+    report << "Read-only: " << (dry_run.read_only ? "yes" : "no") << '\n';
+    report << "Source: " << dry_run.plan.source_path.string() << '\n';
+    report << "Target: " << dry_run.plan.target_path.string() << '\n';
+    report << "Symbol ID: " << dry_run.plan.symbol_id << '\n';
+    if (!dry_run.blockers.empty()) {
+        report << "Blockers: " << dry_run.blockers.size() << '\n';
+        for (const auto& blocker : dry_run.blockers) {
+            report << "- " << dry_run_blocker_name(blocker.kind) << ": " << blocker.detail << '\n';
+        }
+    }
+    if (!dry_run.replacements.empty()) {
+        report << "Replacements: " << dry_run.replacements.size() << '\n';
+        for (const auto& replacement : dry_run.replacements) {
+            report << "- " << replacement.path.string() << ": offsets " << replacement.begin_offset
+                   << '-' << replacement.end_offset << ", insert "
+                   << replacement.replacement_text.size() << " bytes\n";
         }
     }
     return report.str();

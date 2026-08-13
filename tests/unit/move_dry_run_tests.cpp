@@ -92,6 +92,23 @@ void rejects_existing_target() {
     expect(dry_run.replacements.empty(), "blocked dry run should contain no replacements");
 }
 
+void preserves_crlf_line_endings() {
+    TemporaryDirectory directory;
+    const auto source = directory.path() / "source.cpp";
+    const auto target = directory.path() / "target.cpp";
+    const std::string contents = "int a;\r\nint isolated() { return 1; }\r\n";
+    std::ofstream{source, std::ios::binary} << contents;
+    auto plan = ready_plan(source, target);
+    plan.definition->begin_offset = contents.find("int isolated");
+    plan.definition->end_offset = contents.find("}\r\n") + 1;
+
+    const auto dry_run = codesplit::planning::draft_callable_move(plan);
+
+    expect(static_cast<bool>(dry_run), "CRLF source should produce a dry run");
+    expect(dry_run.replacements[1].replacement_text.ends_with("}\r\n"),
+           "target insertion should preserve CRLF line endings");
+}
+
 void detects_half_open_range_overlap() {
     using codesplit::planning::TextReplacement;
     const TextReplacement first{.path = "source.cpp", .begin_offset = 10, .end_offset = 20};
@@ -109,5 +126,6 @@ void detects_half_open_range_overlap() {
 int main() {
     drafts_two_non_overlapping_replacements();
     rejects_existing_target();
+    preserves_crlf_line_endings();
     detects_half_open_range_overlap();
 }

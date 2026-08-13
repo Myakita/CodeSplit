@@ -69,6 +69,17 @@ void rejects_incomplete_plan_move_command() {
            "missing target error should be explicit");
 }
 
+void parses_dry_run_move_command() {
+    const auto command = parse({"codesplit", "dry-run-move", "src/large.cpp", "--symbol-id",
+                                "c:@F@isolated#", "--target", "src/isolated.cpp"});
+
+    expect(static_cast<bool>(command), "dry-run-move command should be valid");
+    expect(command.operation == codesplit::cli::Operation::dry_run_move,
+           "operation should be dry-run-move");
+    expect(command.symbol_id == "c:@F@isolated#", "dry run should preserve the symbol ID");
+    expect(command.target_path == "src/isolated.cpp", "dry run should preserve target path");
+}
+
 void parses_version_option() {
     const auto command = parse({"codesplit", "--version"});
 
@@ -142,6 +153,7 @@ int main() {
     parses_analyze_command();
     parses_plan_move_command();
     rejects_incomplete_plan_move_command();
+    parses_dry_run_move_command();
     parses_version_option();
     parses_build_path();
     parses_maximum_size();

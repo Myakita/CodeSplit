@@ -351,12 +351,37 @@ void formats_blocked_move_plan() {
                  "JSON move plan should expose structured blockers");
 }
 
+void formats_blocked_move_dry_run() {
+    const codesplit::planning::MoveDryRun dry_run{
+        .plan = {.source_path = "src/large.cpp",
+                 .target_path = "src/existing.cpp",
+                 .symbol_id = "c:@F@isolated#"},
+        .blockers = {{.kind = codesplit::planning::MoveDryRunBlockerKind::target_exists,
+                      .detail = "src/existing.cpp"}},
+    };
+
+    expect_equal(codesplit::reporting::format_json_move_dry_run(dry_run),
+                 "{\n"
+                 "  \"status\": \"blocked\",\n"
+                 "  \"read_only\": true,\n"
+                 "  \"source\": \"src/large.cpp\",\n"
+                 "  \"target\": \"src/existing.cpp\",\n"
+                 "  \"symbol_id\": \"c:@F@isolated#\",\n"
+                 "  \"blockers\": [\n"
+                 "    {\"kind\": \"target_exists\", \"detail\": \"src/existing.cpp\"}\n"
+                 "  ],\n"
+                 "  \"replacements\": []\n"
+                 "}\n",
+                 "JSON dry run should expose a structured blocker");
+}
+
 } // namespace
 
 int main() {
     formats_source_file_as_json();
     escapes_special_characters_in_path();
     formats_blocked_move_plan();
+    formats_blocked_move_dry_run();
 
     if (failure_count == 0) {
         std::cout << "All JSON-report tests passed.\n";
