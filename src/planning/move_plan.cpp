@@ -20,6 +20,8 @@ std::string_view constraint_name(analysis::CallableConstraint constraint) {
         return "source_range_unavailable";
     case analysis::CallableConstraint::exceeds_size_limit:
         return "exceeds_size_limit";
+    case analysis::CallableConstraint::delegation_unsupported:
+        return "delegation_unsupported";
     }
     return "unknown";
 }
@@ -75,6 +77,12 @@ MovePlan plan_callable_move(const std::filesystem::path& source_path,
     }
 
     plan.qualified_name = callable->qualified_name;
+    plan.callable_name = callable->name;
+    plan.implementation_name = callable->name + "_codesplit_implementation";
+    plan.parameter_names = callable->parameter_names;
+    plan.returns_void = callable->returns_void;
+    plan.name_offset = callable->name_offset;
+    plan.body = callable->body;
     plan.enclosing_namespaces = callable->enclosing_namespaces;
     plan.definition = analysis::SourceRange{
         .path = source_path,

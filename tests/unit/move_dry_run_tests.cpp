@@ -37,10 +37,22 @@ codesplit::planning::MovePlan ready_plan(const std::filesystem::path& source,
         .target_path = target,
         .symbol_id = "c:@F@isolated#",
         .qualified_name = "isolated",
+        .callable_name = "isolated",
+        .implementation_name = "isolated_codesplit_implementation",
+        .returns_void = false,
+        .name_offset = 11,
         .definition =
             codesplit::analysis::SourceRange{
                 .path = source,
                 .begin_offset = 7,
+                .end_offset = 35,
+                .begin_line = 3,
+                .end_line = 5,
+            },
+        .body =
+            codesplit::analysis::SourceRange{
+                .path = source,
+                .begin_offset = 22,
                 .end_offset = 35,
                 .begin_line = 3,
                 .end_line = 5,
@@ -63,9 +75,13 @@ void drafts_two_non_overlapping_replacements() {
     expect(static_cast<bool>(dry_run), "valid plan should produce a dry run");
     expect(dry_run.read_only, "dry run should be explicitly read-only");
     expect(dry_run.replacements.size() == 2, "dry run should contain removal and insertion");
-    expect(dry_run.replacements[0].replacement_text.empty(), "source range should be removed");
-    expect(dry_run.replacements[1].replacement_text == "int isolated() {\n    return 1;\n}\n",
-           "target insertion should contain the exact definition and one trailing newline");
+    expect(dry_run.replacements[0].replacement_text ==
+               "int isolated_codesplit_implementation();\n\n"
+               "int isolated() {\n    return isolated_codesplit_implementation();\n}",
+           "source definition should remain as a forwarding wrapper");
+    expect(dry_run.replacements[1].replacement_text ==
+               "int isolated_codesplit_implementation() {\n    return 1;\n}\n",
+           "target insertion should contain the renamed implementation");
     expect(!codesplit::planning::replacements_overlap(dry_run.replacements[0],
                                                       dry_run.replacements[1]),
            "replacements in different files should not overlap");

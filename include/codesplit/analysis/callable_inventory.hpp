@@ -24,6 +24,7 @@ enum class CallableConstraint {
     macro_expansion,
     source_range_unavailable,
     exceeds_size_limit,
+    delegation_unsupported,
 };
 
 struct SourceRange {
@@ -48,6 +49,11 @@ struct CallableDefinition {
     bool in_anonymous_namespace = false;
     std::string qualified_name;
     std::string symbol_id;
+    std::string name;
+    std::vector<std::string> parameter_names;
+    bool returns_void = false;
+    std::uintmax_t name_offset = 0;
+    std::optional<SourceRange> body;
     std::vector<std::string> enclosing_namespaces;
     std::optional<SourceRange> declaration;
     std::optional<SourceRange> owning_record;

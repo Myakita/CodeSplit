@@ -43,7 +43,13 @@ struct MovePlan {
     std::filesystem::path target_path;
     std::string symbol_id;
     std::string qualified_name;
+    std::string callable_name;
+    std::string implementation_name;
+    std::vector<std::string> parameter_names;
+    bool returns_void = false;
+    std::uintmax_t name_offset = 0;
     std::optional<analysis::SourceRange> definition;
+    std::optional<analysis::SourceRange> body;
     std::vector<std::string> enclosing_namespaces;
     std::optional<analysis::IncludeDependency> declaration_include;
     std::vector<MovePlanBlocker> blockers;
