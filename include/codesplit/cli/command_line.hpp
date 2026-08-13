@@ -10,6 +10,7 @@ enum class Operation {
     analyze,
     plan_move,
     dry_run_move,
+    apply_move,
 };
 
 enum class ReportFormat {
@@ -27,6 +28,7 @@ struct CommandLine {
     ReportFormat report_format{ReportFormat::text};
     bool show_help{false};
     bool show_version{false};
+    bool confirm_apply{false};
     std::string error;
 
     [[nodiscard]] explicit operator bool() const noexcept { return error.empty(); }

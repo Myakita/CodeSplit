@@ -141,6 +141,25 @@ std::string_view dry_run_blocker_name(planning::MoveDryRunBlockerKind kind) {
     return "unknown";
 }
 
+std::string_view apply_blocker_name(planning::MoveApplyBlockerKind kind) {
+    using enum planning::MoveApplyBlockerKind;
+    switch (kind) {
+    case dry_run_blocked:
+        return "dry run blocked";
+    case invalid_replacement_set:
+        return "invalid replacement set";
+    case source_changed:
+        return "source changed";
+    case staging_failed:
+        return "staging failed";
+    case commit_failed:
+        return "commit failed";
+    case rollback_failed:
+        return "rollback failed";
+    }
+    return "unknown";
+}
+
 void append_diagnostic(std::ostringstream& report, const analysis::FrontendDiagnostic& diagnostic) {
     report << "- " << diagnostic_severity_name(diagnostic.severity);
     if (!diagnostic.path.empty()) {
@@ -302,6 +321,25 @@ std::string format_text_move_dry_run(const planning::MoveDryRun& dry_run) {
                    << '-' << replacement.end_offset << ", insert "
                    << replacement.replacement_text.size() << " bytes\n";
         }
+    }
+    return report.str();
+}
+
+std::string format_text_move_apply(const planning::MoveApplyResult& result) {
+    std::ostringstream report;
+    report << "Move apply: " << (result ? "applied" : "blocked") << '\n';
+    report << "Source: " << result.dry_run.plan.source_path.string() << '\n';
+    report << "Target: " << result.dry_run.plan.target_path.string() << '\n';
+    report << "Symbol ID: " << result.dry_run.plan.symbol_id << '\n';
+    report << "Rolled back: " << (result.rolled_back ? "yes" : "no") << '\n';
+    if (!result.blockers.empty()) {
+        report << "Blockers: " << result.blockers.size() << '\n';
+        for (const auto& blocker : result.blockers) {
+            report << "- " << apply_blocker_name(blocker.kind) << ": " << blocker.detail << '\n';
+        }
+    }
+    for (const auto& warning : result.warnings) {
+        report << "Warning: " << warning << '\n';
     }
     return report.str();
 }

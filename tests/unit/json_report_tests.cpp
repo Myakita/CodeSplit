@@ -375,6 +375,32 @@ void formats_blocked_move_dry_run() {
                  "JSON dry run should expose a structured blocker");
 }
 
+void formats_blocked_move_apply() {
+    const codesplit::planning::MoveApplyResult result{
+        .dry_run = {.plan = {.source_path = "src/large.cpp",
+                             .target_path = "src/isolated.cpp",
+                             .symbol_id = "c:@F@isolated#"}},
+        .blockers = {{.kind = codesplit::planning::MoveApplyBlockerKind::source_changed,
+                      .detail = "source range no longer matches"}},
+    };
+
+    expect_equal(
+        codesplit::reporting::format_json_move_apply(result),
+        "{\n"
+        "  \"status\": \"blocked\",\n"
+        "  \"applied\": false,\n"
+        "  \"rolled_back\": false,\n"
+        "  \"source\": \"src/large.cpp\",\n"
+        "  \"target\": \"src/isolated.cpp\",\n"
+        "  \"symbol_id\": \"c:@F@isolated#\",\n"
+        "  \"blockers\": [\n"
+        "    {\"kind\": \"source_changed\", \"detail\": \"source range no longer matches\"}\n"
+        "  ],\n"
+        "  \"warnings\": []\n"
+        "}\n",
+        "JSON apply report should expose transactional blockers");
+}
+
 } // namespace
 
 int main() {
@@ -382,6 +408,7 @@ int main() {
     escapes_special_characters_in_path();
     formats_blocked_move_plan();
     formats_blocked_move_dry_run();
+    formats_blocked_move_apply();
 
     if (failure_count == 0) {
         std::cout << "All JSON-report tests passed.\n";

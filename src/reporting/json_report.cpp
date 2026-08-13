@@ -190,6 +190,25 @@ std::string_view dry_run_blocker_name(planning::MoveDryRunBlockerKind kind) {
     return "unknown";
 }
 
+std::string_view apply_blocker_name(planning::MoveApplyBlockerKind kind) {
+    using enum planning::MoveApplyBlockerKind;
+    switch (kind) {
+    case dry_run_blocked:
+        return "dry_run_blocked";
+    case invalid_replacement_set:
+        return "invalid_replacement_set";
+    case source_changed:
+        return "source_changed";
+    case staging_failed:
+        return "staging_failed";
+    case commit_failed:
+        return "commit_failed";
+    case rollback_failed:
+        return "rollback_failed";
+    }
+    return "unknown";
+}
+
 void append_constraints(std::ostringstream& report,
                         const std::vector<analysis::CallableConstraint>& constraints) {
     report << '[';
@@ -526,6 +545,37 @@ std::string format_json_move_dry_run(const planning::MoveDryRun& dry_run) {
     } else {
         report << "]\n";
     }
+    report << "}\n";
+    return report.str();
+}
+
+std::string format_json_move_apply(const planning::MoveApplyResult& result) {
+    std::ostringstream report;
+    report << "{\n";
+    report << "  \"status\": \"" << (result ? "applied" : "blocked") << "\",\n";
+    report << "  \"applied\": " << (result.applied ? "true" : "false") << ",\n";
+    report << "  \"rolled_back\": " << (result.rolled_back ? "true" : "false") << ",\n";
+    report << "  \"source\": \""
+           << escape_json_string(path_to_utf8(result.dry_run.plan.source_path)) << "\",\n";
+    report << "  \"target\": \""
+           << escape_json_string(path_to_utf8(result.dry_run.plan.target_path)) << "\",\n";
+    report << "  \"symbol_id\": \"" << escape_json_string(result.dry_run.plan.symbol_id) << "\",\n";
+    report << "  \"blockers\": [";
+    for (std::size_t index = 0; index < result.blockers.size(); ++index) {
+        const auto& blocker = result.blockers[index];
+        report << (index == 0 ? "\n" : ",\n");
+        report << "    {\"kind\": \"" << apply_blocker_name(blocker.kind) << "\", \"detail\": \""
+               << escape_json_string(blocker.detail) << "\"}";
+    }
+    report << (result.blockers.empty() ? "],\n" : "\n  ],\n");
+    report << "  \"warnings\": [";
+    for (std::size_t index = 0; index < result.warnings.size(); ++index) {
+        if (index != 0) {
+            report << ", ";
+        }
+        report << '"' << escape_json_string(result.warnings[index]) << '"';
+    }
+    report << "]\n";
     report << "}\n";
     return report.str();
 }

@@ -1,6 +1,7 @@
 #include "codesplit/analysis/callable_inventory.hpp"
 #include "codesplit/analysis/source_file.hpp"
 #include "codesplit/cli/command_line.hpp"
+#include "codesplit/planning/move_apply.hpp"
 #include "codesplit/planning/move_dry_run.hpp"
 #include "codesplit/planning/move_plan.hpp"
 #include "codesplit/reporting/json_report.hpp"
@@ -40,11 +41,25 @@ int main(int argc, char* argv[]) {
         command.build_path, command.input_path, size_limit_bytes);
 
     if (command.operation == codesplit::cli::Operation::plan_move ||
-        command.operation == codesplit::cli::Operation::dry_run_move) {
+        command.operation == codesplit::cli::Operation::dry_run_move ||
+        command.operation == codesplit::cli::Operation::apply_move) {
         const auto plan = codesplit::planning::plan_callable_move(
             command.input_path, command.target_path, command.symbol_id, inventory);
-        if (command.operation == codesplit::cli::Operation::dry_run_move) {
+        if (command.operation == codesplit::cli::Operation::dry_run_move ||
+            command.operation == codesplit::cli::Operation::apply_move) {
             const auto dry_run = codesplit::planning::draft_callable_move(plan);
+            if (command.operation == codesplit::cli::Operation::apply_move) {
+                const auto result = codesplit::planning::apply_callable_move(dry_run);
+                if (command.report_format == codesplit::cli::ReportFormat::json) {
+                    std::cout << codesplit::reporting::format_json_move_apply(result);
+                } else {
+                    std::cout << codesplit::reporting::format_text_move_apply(result);
+                }
+                if (result) {
+                    return 0;
+                }
+                return dry_run ? 4 : 3;
+            }
             if (command.report_format == codesplit::cli::ReportFormat::json) {
                 std::cout << codesplit::reporting::format_json_move_dry_run(dry_run);
             } else {

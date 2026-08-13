@@ -80,6 +80,21 @@ void parses_dry_run_move_command() {
     expect(command.target_path == "src/isolated.cpp", "dry run should preserve target path");
 }
 
+void parses_confirmed_apply_move_command() {
+    const auto command = parse({"codesplit", "apply-move", "src/large.cpp", "--symbol-id",
+                                "c:@F@isolated#", "--target", "src/isolated.cpp", "--confirm"});
+    const auto unconfirmed = parse({"codesplit", "apply-move", "src/large.cpp", "--symbol-id",
+                                    "c:@F@isolated#", "--target", "src/isolated.cpp"});
+
+    expect(static_cast<bool>(command), "confirmed apply-move command should be valid");
+    expect(command.operation == codesplit::cli::Operation::apply_move,
+           "operation should be apply-move");
+    expect(command.confirm_apply, "apply command should preserve explicit confirmation");
+    expect(!unconfirmed, "unconfirmed apply command should be rejected");
+    expect(unconfirmed.error == "Missing required --confirm for apply-move.",
+           "unconfirmed apply error should be explicit");
+}
+
 void parses_version_option() {
     const auto command = parse({"codesplit", "--version"});
 
@@ -154,6 +169,7 @@ int main() {
     parses_plan_move_command();
     rejects_incomplete_plan_move_command();
     parses_dry_run_move_command();
+    parses_confirmed_apply_move_command();
     parses_version_option();
     parses_build_path();
     parses_maximum_size();

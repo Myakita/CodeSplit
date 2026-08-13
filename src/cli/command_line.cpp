@@ -60,6 +60,8 @@ CommandLine parse_command_line(int argc, char* argv[]) {
         result.operation = Operation::plan_move;
     } else if (operation == "dry-run-move") {
         result.operation = Operation::dry_run_move;
+    } else if (operation == "apply-move") {
+        result.operation = Operation::apply_move;
     } else {
         result.error = "Unknown command: " + std::string{argv[1]};
         return result;
@@ -105,6 +107,11 @@ CommandLine parse_command_line(int argc, char* argv[]) {
             continue;
         }
 
+        if (argument == "--confirm") {
+            result.confirm_apply = true;
+            continue;
+        }
+
         if (argument == "--max-size-kb") {
             if (++index >= argc) {
                 result.error = "Missing value for --max-size-kb.";
@@ -144,21 +151,29 @@ CommandLine parse_command_line(int argc, char* argv[]) {
     }
 
     if (result.operation == Operation::analyze &&
-        (!result.symbol_id.empty() || !result.target_path.empty())) {
-        result.error =
-            "Options --symbol-id and --target are only valid for move planning commands.";
+        (!result.symbol_id.empty() || !result.target_path.empty() || result.confirm_apply)) {
+        result.error = "Move options are not valid for analyze.";
         return result;
     }
 
-    if (result.operation == Operation::plan_move || result.operation == Operation::dry_run_move) {
-        const auto operation_name =
-            result.operation == Operation::plan_move ? "plan-move" : "dry-run-move";
+    if (result.confirm_apply && result.operation != Operation::apply_move) {
+        result.error = "Option --confirm is only valid for apply-move.";
+        return result;
+    }
+
+    if (result.operation == Operation::plan_move || result.operation == Operation::dry_run_move ||
+        result.operation == Operation::apply_move) {
+        const auto operation_name = operation;
         if (result.symbol_id.empty()) {
             result.error = "Missing required --symbol-id for " + std::string{operation_name} + '.';
             return result;
         }
         if (result.target_path.empty()) {
             result.error = "Missing required --target for " + std::string{operation_name} + '.';
+            return result;
+        }
+        if (result.operation == Operation::apply_move && !result.confirm_apply) {
+            result.error = "Missing required --confirm for apply-move.";
             return result;
         }
     }
@@ -173,6 +188,8 @@ std::string usage() {
            "  codesplit plan-move <file> --symbol-id <usr> --target <file> "
            "[--build-path <directory>] [--max-size-kb <number>] [--format <text|json>]\n"
            "  codesplit dry-run-move <file> --symbol-id <usr> --target <file> "
+           "[--build-path <directory>] [--max-size-kb <number>] [--format <text|json>]\n"
+           "  codesplit apply-move <file> --symbol-id <usr> --target <file> --confirm "
            "[--build-path <directory>] [--max-size-kb <number>] [--format <text|json>]\n"
            "  codesplit --version\n"
            "  codesplit --help\n";

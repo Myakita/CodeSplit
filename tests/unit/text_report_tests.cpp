@@ -286,6 +286,23 @@ void formats_move_dry_run() {
                  "text dry run should expose replacement ranges without applying them");
 }
 
+void formats_successful_move_apply() {
+    const codesplit::planning::MoveApplyResult result{
+        .dry_run = {.plan = {.source_path = "src/large.cpp",
+                             .target_path = "src/isolated.cpp",
+                             .symbol_id = "c:@F@isolated#"}},
+        .applied = true,
+    };
+
+    expect_equal(codesplit::reporting::format_text_move_apply(result),
+                 "Move apply: applied\n"
+                 "Source: src/large.cpp\n"
+                 "Target: src/isolated.cpp\n"
+                 "Symbol ID: c:@F@isolated#\n"
+                 "Rolled back: no\n",
+                 "text apply report should confirm committed paths");
+}
+
 } // namespace
 
 int main() {
@@ -293,6 +310,7 @@ int main() {
     formats_file_within_limit();
     formats_ready_move_plan();
     formats_move_dry_run();
+    formats_successful_move_apply();
 
     if (failure_count == 0) {
         std::cout << "All text-report tests passed.\n";
