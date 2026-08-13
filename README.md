@@ -18,6 +18,9 @@ codesplit plan-move <file> --symbol-id <usr> --target <file>
 codesplit dry-run-move <file> --symbol-id <usr> --target <file>
                       [--build-path <directory>] [--max-size-kb <number>]
                       [--format <text|json>]
+codesplit apply-move <file> --symbol-id <usr> --target <file> --confirm
+                    [--build-path <directory>] [--max-size-kb <number>]
+                    [--format <text|json>]
 ```
 
 Команда выводит путь, размер файла в байтах, количество строк, признак превышения заданного
@@ -42,13 +45,19 @@ callable и сохраняют диапазон определения и все
 `plan-move` выбирает одну свободную функцию по USR. Для допустимого кандидата команда показывает
 будущие шаги переноса; иначе перечисляет все найденные блокирующие причины и возвращает код 3.
 `dry-run-move` дополнительно строит две точные половинно-открытые текстовые замены, проверяет их
-диапазоны и отсутствие пересечений. Сейчас все три команды не изменяют исходники и не создают
-целевой файл. Для автоматической обработки результат можно вывести в JSON:
+диапазоны и отсутствие пересечений. Эти три диагностические команды не изменяют исходники и не
+создают целевой файл.
+
+`apply-move` — первая изменяющая команда. Она требует `--confirm`, повторно сверяет исходный текст,
+сначала записывает обе новые версии во временные файлы и восстанавливает backup исходника при
+ошибке файлового commit. Автоматическая сборка изменённого проекта пока не запускается. Для
+автоматической обработки любой результат можно вывести в JSON:
 
 ```text
 codesplit analyze src/large.cpp --format json
 codesplit plan-move src/large.cpp --symbol-id <usr> --target src/isolated.cpp --format json
 codesplit dry-run-move src/large.cpp --symbol-id <usr> --target src/isolated.cpp --format json
+codesplit apply-move src/large.cpp --symbol-id <usr> --target src/isolated.cpp --confirm --format json
 ```
 
 ## Загрузка зависимостей
