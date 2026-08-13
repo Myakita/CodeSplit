@@ -53,7 +53,12 @@ CommandLine parse_command_line(int argc, char* argv[]) {
         return result;
     }
 
-    if (std::string_view{argv[1]} != "analyze") {
+    const std::string_view operation{argv[1]};
+    if (operation == "analyze") {
+        result.operation = Operation::analyze;
+    } else if (operation == "plan-move") {
+        result.operation = Operation::plan_move;
+    } else {
         result.error = "Unknown command: " + std::string{argv[1]};
         return result;
     }
@@ -75,6 +80,26 @@ CommandLine parse_command_line(int argc, char* argv[]) {
             }
 
             result.build_path = argv[index];
+            continue;
+        }
+
+        if (argument == "--symbol-id") {
+            if (++index >= argc) {
+                result.error = "Missing value for --symbol-id.";
+                return result;
+            }
+
+            result.symbol_id = argv[index];
+            continue;
+        }
+
+        if (argument == "--target") {
+            if (++index >= argc) {
+                result.error = "Missing value for --target.";
+                return result;
+            }
+
+            result.target_path = argv[index];
             continue;
         }
 
@@ -112,6 +137,27 @@ CommandLine parse_command_line(int argc, char* argv[]) {
         return result;
     }
 
+    if (result.show_help) {
+        return result;
+    }
+
+    if (result.operation == Operation::analyze &&
+        (!result.symbol_id.empty() || !result.target_path.empty())) {
+        result.error = "Options --symbol-id and --target are only valid for plan-move.";
+        return result;
+    }
+
+    if (result.operation == Operation::plan_move) {
+        if (result.symbol_id.empty()) {
+            result.error = "Missing required --symbol-id for plan-move.";
+            return result;
+        }
+        if (result.target_path.empty()) {
+            result.error = "Missing required --target for plan-move.";
+            return result;
+        }
+    }
+
     return result;
 }
 
@@ -119,6 +165,8 @@ std::string usage() {
     return "Usage:\n"
            "  codesplit analyze <file> [--build-path <directory>] [--max-size-kb <number>] "
            "[--format <text|json>]\n"
+           "  codesplit plan-move <file> --symbol-id <usr> --target <file> "
+           "[--build-path <directory>] [--max-size-kb <number>] [--format <text|json>]\n"
            "  codesplit --version\n"
            "  codesplit --help\n";
 }

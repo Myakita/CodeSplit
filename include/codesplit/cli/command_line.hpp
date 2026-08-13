@@ -8,6 +8,7 @@ namespace codesplit::cli {
 
 enum class Operation {
     analyze,
+    plan_move,
 };
 
 enum class ReportFormat {
@@ -18,7 +19,9 @@ enum class ReportFormat {
 struct CommandLine {
     Operation operation{Operation::analyze};
     std::filesystem::path input_path;
+    std::filesystem::path target_path;
     std::filesystem::path build_path{"build"};
+    std::string symbol_id;
     std::uintmax_t max_size_kib{100};
     ReportFormat report_format{ReportFormat::text};
     bool show_help{false};

@@ -40,6 +40,35 @@ void parses_analyze_command() {
            "default report format should be text");
 }
 
+void parses_plan_move_command() {
+    const auto command =
+        parse({"codesplit", "plan-move", "src/large.cpp", "--symbol-id", "c:@F@isolated#I#",
+               "--target", "src/isolated.cpp", "--build-path", "out", "--format", "json"});
+
+    expect(static_cast<bool>(command), "plan-move command should be valid");
+    expect(command.operation == codesplit::cli::Operation::plan_move,
+           "operation should be plan-move");
+    expect(command.symbol_id == "c:@F@isolated#I#", "symbol ID should be preserved");
+    expect(command.target_path == "src/isolated.cpp", "target path should be preserved");
+    expect(command.build_path == "out", "plan should preserve build path");
+    expect(command.report_format == codesplit::cli::ReportFormat::json,
+           "plan should preserve report format");
+}
+
+void rejects_incomplete_plan_move_command() {
+    const auto missing_symbol =
+        parse({"codesplit", "plan-move", "src/large.cpp", "--target", "src/new.cpp"});
+    const auto missing_target =
+        parse({"codesplit", "plan-move", "src/large.cpp", "--symbol-id", "c:@F@isolated#I#"});
+
+    expect(!missing_symbol, "plan without symbol ID should be rejected");
+    expect(missing_symbol.error == "Missing required --symbol-id for plan-move.",
+           "missing symbol error should be explicit");
+    expect(!missing_target, "plan without target should be rejected");
+    expect(missing_target.error == "Missing required --target for plan-move.",
+           "missing target error should be explicit");
+}
+
 void parses_version_option() {
     const auto command = parse({"codesplit", "--version"});
 
@@ -111,6 +140,8 @@ void rejects_missing_build_path_value() {
 
 int main() {
     parses_analyze_command();
+    parses_plan_move_command();
+    rejects_incomplete_plan_move_command();
     parses_version_option();
     parses_build_path();
     parses_maximum_size();
