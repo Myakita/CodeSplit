@@ -58,6 +58,16 @@ std::string_view dependency_kind_name(analysis::CallableDependencyKind kind) {
     return "unknown";
 }
 
+std::string_view include_kind_name(analysis::IncludeKind kind) {
+    switch (kind) {
+    case analysis::IncludeKind::quoted:
+        return "quoted";
+    case analysis::IncludeKind::angled:
+        return "angled";
+    }
+    return "unknown";
+}
+
 void append_diagnostic(std::ostringstream& report, const analysis::FrontendDiagnostic& diagnostic) {
     report << "- " << diagnostic_severity_name(diagnostic.severity);
     if (!diagnostic.path.empty()) {
@@ -132,6 +142,14 @@ std::string format_text_report(const analysis::SourceFileInfo& info, std::uintma
                 report << "- " << dependency_kind_name(dependency.kind) << ' '
                        << dependency.source_qualified_name << " -> "
                        << dependency.target_qualified_name << '\n';
+            }
+        }
+        if (!inventory.includes.empty()) {
+            report << "Include dependencies: " << inventory.includes.size() << '\n';
+            for (const auto& include : inventory.includes) {
+                report << "- " << include_kind_name(include.kind) << ' ' << include.written_name
+                       << " -> " << include.resolved_path.string() << " at "
+                       << include.origin.path.string() << ':' << include.origin.begin_line << '\n';
             }
         }
     }

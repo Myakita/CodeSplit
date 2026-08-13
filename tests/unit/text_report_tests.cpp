@@ -95,6 +95,22 @@ void formats_source_file_information() {
                     .target_qualified_name = "sample::counter",
                 },
             },
+        .includes =
+            {
+                {
+                    .kind = codesplit::analysis::IncludeKind::quoted,
+                    .written_name = "worker.hpp",
+                    .resolved_path = "include/worker.hpp",
+                    .origin =
+                        {
+                            .path = "src/large.cpp",
+                            .begin_offset = 0,
+                            .end_offset = 21,
+                            .begin_line = 1,
+                            .end_line = 1,
+                        },
+                },
+            },
         .diagnostics =
             {
                 {
@@ -129,7 +145,9 @@ void formats_source_file_information() {
                  "- direct call sample::Worker::run -> sample::helper\n"
                  "- type reference sample::Worker::run -> sample::Payload\n"
                  "- global read sample::Worker::run -> sample::counter\n"
-                 "- global write sample::Worker::run -> sample::counter\n",
+                 "- global write sample::Worker::run -> sample::counter\n"
+                 "Include dependencies: 1\n"
+                 "- quoted worker.hpp -> include/worker.hpp at src/large.cpp:1\n",
                  "text report should contain stable source-file information");
 }
 

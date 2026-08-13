@@ -78,6 +78,22 @@ void formats_source_file_as_json() {
                     .target_qualified_name = "sample::counter",
                 },
             },
+        .includes =
+            {
+                {
+                    .kind = codesplit::analysis::IncludeKind::angled,
+                    .written_name = "vector",
+                    .resolved_path = "C:/toolchain/include/vector",
+                    .origin =
+                        {
+                            .path = "src/large.cpp",
+                            .begin_offset = 0,
+                            .end_offset = 17,
+                            .begin_line = 1,
+                            .end_line = 1,
+                        },
+                },
+            },
         .diagnostics =
             {
                 {
@@ -146,6 +162,20 @@ void formats_source_file_as_json() {
                  "        \"target_qualified_name\": \"sample::counter\"\n"
                  "      }\n"
                  "    ],\n"
+                 "    \"includes\": [\n"
+                 "      {\n"
+                 "        \"kind\": \"angled\",\n"
+                 "        \"written_name\": \"vector\",\n"
+                 "        \"resolved_path\": \"C:/toolchain/include/vector\",\n"
+                 "        \"origin\": {\n"
+                 "          \"path\": \"src/large.cpp\",\n"
+                 "          \"begin_offset\": 0,\n"
+                 "          \"end_offset\": 17,\n"
+                 "          \"begin_line\": 1,\n"
+                 "          \"end_line\": 1\n"
+                 "        }\n"
+                 "      }\n"
+                 "    ],\n"
                  "    \"definitions\": [\n"
                  "      {\n"
                  "        \"kind\": \"free_function\",\n"
@@ -203,6 +233,7 @@ void escapes_special_characters_in_path() {
                  "    \"error\": \"missing \\\"database\\\"\",\n"
                  "    \"diagnostics\": [],\n"
                  "    \"dependencies\": [],\n"
+                 "    \"includes\": [],\n"
                  "    \"definitions\": []\n"
                  "  }\n"
                  "}\n",

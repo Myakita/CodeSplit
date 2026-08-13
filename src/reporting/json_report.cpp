@@ -107,6 +107,16 @@ std::string_view dependency_kind_name(analysis::CallableDependencyKind kind) {
     return "unknown";
 }
 
+std::string_view include_kind_name(analysis::IncludeKind kind) {
+    switch (kind) {
+    case analysis::IncludeKind::quoted:
+        return "quoted";
+    case analysis::IncludeKind::angled:
+        return "angled";
+    }
+    return "unknown";
+}
+
 void append_constraints(std::ostringstream& report,
                         const std::vector<analysis::CallableConstraint>& constraints) {
     report << '[';
@@ -167,6 +177,35 @@ void append_dependencies(std::ostringstream& report,
         report << "        \"target_qualified_name\": \""
                << escape_json_string(dependency.target_qualified_name) << "\"\n";
         report << "      }" << (index + 1 == dependencies.size() ? "\n" : ",\n");
+    }
+    report << "    ]";
+}
+
+void append_includes(std::ostringstream& report,
+                     const std::vector<analysis::IncludeDependency>& includes) {
+    if (includes.empty()) {
+        report << "[]";
+        return;
+    }
+
+    report << "[\n";
+    for (std::size_t index = 0; index < includes.size(); ++index) {
+        const auto& include = includes[index];
+        report << "      {\n";
+        report << "        \"kind\": \"" << include_kind_name(include.kind) << "\",\n";
+        report << "        \"written_name\": \"" << escape_json_string(include.written_name)
+               << "\",\n";
+        report << "        \"resolved_path\": \""
+               << escape_json_string(path_to_utf8(include.resolved_path)) << "\",\n";
+        report << "        \"origin\": {\n";
+        report << "          \"path\": \"" << escape_json_string(path_to_utf8(include.origin.path))
+               << "\",\n";
+        report << "          \"begin_offset\": " << include.origin.begin_offset << ",\n";
+        report << "          \"end_offset\": " << include.origin.end_offset << ",\n";
+        report << "          \"begin_line\": " << include.origin.begin_line << ",\n";
+        report << "          \"end_line\": " << include.origin.end_line << "\n";
+        report << "        }\n";
+        report << "      }" << (index + 1 == includes.size() ? "\n" : ",\n");
     }
     report << "    ]";
 }
@@ -250,6 +289,9 @@ std::string format_json_report(const analysis::SourceFileInfo& info, std::uintma
     report << ",\n";
     report << "    \"dependencies\": ";
     append_dependencies(report, inventory.dependencies);
+    report << ",\n";
+    report << "    \"includes\": ";
+    append_includes(report, inventory.includes);
     report << ",\n";
     report << "    \"definitions\": ";
     if (inventory.callables.empty()) {
