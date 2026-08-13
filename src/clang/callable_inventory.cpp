@@ -164,11 +164,16 @@ class DirectIncludeCollector : public clang::PPCallbacks {
         : source_manager_{source_manager}, language_options_{language_options},
           includes_{includes} {}
 
-    void InclusionDirective(clang::SourceLocation hash_location, const clang::Token&,
+    void InclusionDirective(clang::SourceLocation hash_location, const clang::Token& include_token,
                             llvm::StringRef filename, bool is_angled,
                             clang::CharSourceRange filename_range, clang::OptionalFileEntryRef file,
                             llvm::StringRef, llvm::StringRef, const clang::Module*, bool,
                             clang::SrcMgr::CharacteristicKind) override {
+        const auto* identifier = include_token.getIdentifierInfo();
+        if (identifier == nullptr || identifier->getName() != "include") {
+            return;
+        }
+
         const auto begin = source_manager_.getExpansionLoc(hash_location);
         if (!begin.isValid() || !source_manager_.isWrittenInMainFile(begin)) {
             return;
