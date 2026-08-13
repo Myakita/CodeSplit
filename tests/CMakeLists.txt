@@ -10,6 +10,10 @@ add_executable(codesplit_move_plan_tests unit/move_plan_tests.cpp)
 target_link_libraries(codesplit_move_plan_tests PRIVATE codesplit_core)
 add_test(NAME codesplit_move_plan_tests COMMAND codesplit_move_plan_tests)
 
+add_executable(codesplit_move_dry_run_tests unit/move_dry_run_tests.cpp)
+target_link_libraries(codesplit_move_dry_run_tests PRIVATE codesplit_core)
+add_test(NAME codesplit_move_dry_run_tests COMMAND codesplit_move_dry_run_tests)
+
 add_executable(codesplit_text_report_tests unit/text_report_tests.cpp)
 target_link_libraries(codesplit_text_report_tests PRIVATE codesplit_core)
 add_test(NAME codesplit_text_report_tests COMMAND codesplit_text_report_tests)

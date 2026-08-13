@@ -13,6 +13,7 @@ option(CODESPLIT_ENABLE_CLANG "Enable Clang LibTooling integration when availabl
 add_library(codesplit_core
     src/analysis/source_file.cpp
     src/cli/command_line.cpp
+    src/planning/move_dry_run.cpp
     src/planning/move_plan.cpp
     src/reporting/json_report.cpp
     src/reporting/text_report.cpp
