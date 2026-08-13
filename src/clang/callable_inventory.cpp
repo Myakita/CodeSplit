@@ -13,6 +13,7 @@
 #include <clang/Frontend/FrontendAction.h>
 #include <clang/Index/USRGeneration.h>
 #include <clang/Lex/Lexer.h>
+#include <clang/Lex/MacroInfo.h>
 #include <clang/Lex/PPCallbacks.h>
 #include <clang/Lex/Preprocessor.h>
 #include <clang/Tooling/Tooling.h>
@@ -185,13 +186,20 @@ std::optional<SourceRange> include_origin_for(clang::SourceLocation hash_locatio
     };
 }
 
-class DirectIncludeCollector : public clang::PPCallbacks {
+struct MacroExpansion {
+    std::string macro_name;
+    std::optional<SourceRange> definition;
+    SourceRange expansion;
+};
+
+class PreprocessorCollector : public clang::PPCallbacks {
   public:
-    DirectIncludeCollector(clang::SourceManager& source_manager,
-                           const clang::LangOptions& language_options,
-                           std::vector<IncludeDependency>& includes)
-        : source_manager_{source_manager}, language_options_{language_options},
-          includes_{includes} {}
+    PreprocessorCollector(clang::SourceManager& source_manager,
+                          const clang::LangOptions& language_options,
+                          std::vector<IncludeDependency>& includes,
+                          std::vector<MacroExpansion>& macro_expansions)
+        : source_manager_{source_manager}, language_options_{language_options}, includes_{includes},
+          macro_expansions_{macro_expansions} {}
 
     void InclusionDirective(clang::SourceLocation hash_location, const clang::Token& include_token,
                             llvm::StringRef filename, bool is_angled,
@@ -223,11 +231,88 @@ class DirectIncludeCollector : public clang::PPCallbacks {
         });
     }
 
+    void MacroExpands(const clang::Token& macro_name_token,
+                      const clang::MacroDefinition& definition, clang::SourceRange range,
+                      const clang::MacroArgs*) override {
+        const auto token_location = macro_name_token.getLocation();
+        if (!token_location.isFileID()) {
+            return;
+        }
+
+        const auto begin = source_manager_.getExpansionLoc(range.getBegin());
+        if (!begin.isValid() || !source_manager_.isWrittenInMainFile(begin)) {
+            return;
+        }
+
+        const auto* identifier = macro_name_token.getIdentifierInfo();
+        const auto expansion = source_range_for(range, source_manager_, language_options_);
+        if (identifier == nullptr || !expansion.has_value()) {
+            return;
+        }
+
+        std::optional<SourceRange> definition_range;
+        if (const auto* macro_info = definition.getMacroInfo()) {
+            definition_range = source_range_for(
+                {macro_info->getDefinitionLoc(), macro_info->getDefinitionEndLoc()},
+                source_manager_, language_options_);
+        }
+
+        macro_expansions_.push_back({
+            .macro_name = identifier->getName().str(),
+            .definition = std::move(definition_range),
+            .expansion = *expansion,
+        });
+    }
+
   private:
     clang::SourceManager& source_manager_;
     const clang::LangOptions& language_options_;
     std::vector<IncludeDependency>& includes_;
+    std::vector<MacroExpansion>& macro_expansions_;
 };
+
+bool same_source_range(const std::optional<SourceRange>& left,
+                       const std::optional<SourceRange>& right) {
+    if (!left.has_value() || !right.has_value()) {
+        return left.has_value() == right.has_value();
+    }
+    return left->path == right->path && left->begin_offset == right->begin_offset &&
+           left->end_offset == right->end_offset;
+}
+
+void associate_macro_dependencies(const std::vector<CallableDefinition>& callables,
+                                  const std::vector<MacroExpansion>& macro_expansions,
+                                  std::vector<MacroDependency>& dependencies) {
+    for (const auto& callable : callables) {
+        if (callable.symbol_id.empty()) {
+            continue;
+        }
+
+        for (const auto& macro : macro_expansions) {
+            if (macro.expansion.begin_offset < callable.begin_offset ||
+                macro.expansion.end_offset > callable.end_offset) {
+                continue;
+            }
+
+            const auto existing = std::ranges::find_if(dependencies, [&](const auto& dependency) {
+                return dependency.source_symbol_id == callable.symbol_id &&
+                       dependency.macro_name == macro.macro_name &&
+                       same_source_range(dependency.definition, macro.definition);
+            });
+            if (existing == dependencies.end()) {
+                dependencies.push_back({
+                    .source_symbol_id = callable.symbol_id,
+                    .source_qualified_name = callable.qualified_name,
+                    .macro_name = macro.macro_name,
+                    .definition = macro.definition,
+                    .expansions = {macro.expansion},
+                });
+            } else {
+                existing->expansions.push_back(macro.expansion);
+            }
+        }
+    }
+}
 
 void add_dependency(std::vector<CallableDependency>& dependencies, CallableDependencyKind kind,
                     const std::string& source_symbol_id, const std::string& source_qualified_name,
@@ -488,14 +573,15 @@ class CallableAction : public clang::ASTFrontendAction {
   public:
     CallableAction(std::uintmax_t size_limit_bytes, std::vector<CallableDefinition>& callables,
                    std::vector<CallableDependency>& dependencies,
-                   std::vector<IncludeDependency>& includes)
+                   std::vector<IncludeDependency>& includes,
+                   std::vector<MacroExpansion>& macro_expansions)
         : size_limit_bytes_{size_limit_bytes}, callables_{callables}, dependencies_{dependencies},
-          includes_{includes} {}
+          includes_{includes}, macro_expansions_{macro_expansions} {}
 
     std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance& compiler,
                                                           llvm::StringRef) override {
-        compiler.getPreprocessor().addPPCallbacks(std::make_unique<DirectIncludeCollector>(
-            compiler.getSourceManager(), compiler.getLangOpts(), includes_));
+        compiler.getPreprocessor().addPPCallbacks(std::make_unique<PreprocessorCollector>(
+            compiler.getSourceManager(), compiler.getLangOpts(), includes_, macro_expansions_));
         return std::make_unique<CallableConsumer>(compiler.getSourceManager(),
                                                   compiler.getLangOpts(), size_limit_bytes_,
                                                   callables_, dependencies_);
@@ -506,6 +592,7 @@ class CallableAction : public clang::ASTFrontendAction {
     std::vector<CallableDefinition>& callables_;
     std::vector<CallableDependency>& dependencies_;
     std::vector<IncludeDependency>& includes_;
+    std::vector<MacroExpansion>& macro_expansions_;
 };
 
 class CallableActionFactory : public clang::tooling::FrontendActionFactory {
@@ -513,13 +600,14 @@ class CallableActionFactory : public clang::tooling::FrontendActionFactory {
     CallableActionFactory(std::uintmax_t size_limit_bytes,
                           std::vector<CallableDefinition>& callables,
                           std::vector<CallableDependency>& dependencies,
-                          std::vector<IncludeDependency>& includes)
+                          std::vector<IncludeDependency>& includes,
+                          std::vector<MacroExpansion>& macro_expansions)
         : size_limit_bytes_{size_limit_bytes}, callables_{callables}, dependencies_{dependencies},
-          includes_{includes} {}
+          includes_{includes}, macro_expansions_{macro_expansions} {}
 
     std::unique_ptr<clang::FrontendAction> create() override {
         return std::make_unique<CallableAction>(size_limit_bytes_, callables_, dependencies_,
-                                                includes_);
+                                                includes_, macro_expansions_);
     }
 
   private:
@@ -527,6 +615,7 @@ class CallableActionFactory : public clang::tooling::FrontendActionFactory {
     std::vector<CallableDefinition>& callables_;
     std::vector<CallableDependency>& dependencies_;
     std::vector<IncludeDependency>& includes_;
+    std::vector<MacroExpansion>& macro_expansions_;
 };
 
 class SingleCommandDatabase : public clang::tooling::CompilationDatabase {
@@ -581,13 +670,16 @@ CallableInventoryResult inventory_callables(const std::filesystem::path& build_p
     clang::tooling::ClangTool tool{database, {detail::path_to_utf8(source_path)}};
     CollectingDiagnosticConsumer diagnostic_consumer{result.diagnostics};
     tool.setDiagnosticConsumer(&diagnostic_consumer);
+    std::vector<MacroExpansion> macro_expansions;
     CallableActionFactory action_factory{size_limit_bytes, result.callables, result.dependencies,
-                                         result.includes};
+                                         result.includes, macro_expansions};
     if (tool.run(&action_factory) != 0) {
         result.callables.clear();
         result.dependencies.clear();
         result.includes.clear();
         result.error = "Clang frontend failed to analyze: " + detail::path_to_utf8(source_path);
+    } else {
+        associate_macro_dependencies(result.callables, macro_expansions, result.macros);
     }
 
     std::ranges::sort(result.callables, {}, &CallableDefinition::begin_offset);

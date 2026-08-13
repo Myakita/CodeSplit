@@ -73,11 +73,20 @@ struct IncludeDependency {
     SourceRange origin;
 };
 
+struct MacroDependency {
+    std::string source_symbol_id;
+    std::string source_qualified_name;
+    std::string macro_name;
+    std::optional<SourceRange> definition;
+    std::vector<SourceRange> expansions;
+};
+
 struct CallableInventoryResult {
     CompilationCommandResult compilation;
     std::vector<CallableDefinition> callables;
     std::vector<CallableDependency> dependencies;
     std::vector<IncludeDependency> includes;
+    std::vector<MacroDependency> macros;
     std::vector<FrontendDiagnostic> diagnostics;
     std::string error;
 

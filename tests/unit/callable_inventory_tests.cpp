@@ -195,6 +195,15 @@ find_dependency_to(const codesplit::analysis::CallableInventoryResult& result,
     return dependency == result.dependencies.end() ? nullptr : &*dependency;
 }
 
+const codesplit::analysis::MacroDependency*
+find_macro_dependency(const codesplit::analysis::CallableInventoryResult& result,
+                      const std::string& source_symbol_id, const std::string& macro_name) {
+    const auto dependency = std::ranges::find_if(result.macros, [&](const auto& candidate) {
+        return candidate.source_symbol_id == source_symbol_id && candidate.macro_name == macro_name;
+    });
+    return dependency == result.macros.end() ? nullptr : &*dependency;
+}
+
 const codesplit::analysis::CallableDependency*
 find_dependency_to(const codesplit::analysis::CallableInventoryResult& result,
                    const std::string& source_symbol_id, const std::string& target_qualified_name,
@@ -396,6 +405,7 @@ void reports_frontend_errors() {
     expect(result.callables.empty(), "partial callable inventory should be discarded");
     expect(result.dependencies.empty(), "partial dependencies should be discarded");
     expect(result.includes.empty(), "partial includes should be discarded");
+    expect(result.macros.empty(), "partial macro dependencies should be discarded");
     const auto* error =
         find_diagnostic(result, codesplit::analysis::FrontendDiagnosticSeverity::error, "expected");
     expect(error != nullptr, "frontend error should be retained");
@@ -457,6 +467,52 @@ void inventories_callable_linkage() {
         expect(anonymous->in_anonymous_namespace,
                "anonymous namespace function should retain its semantic origin");
     }
+}
+
+void inventories_direct_macro_dependencies() {
+    const TemporaryProject project;
+    project.replace_source("#define OFFSET 1\n"
+                           "#define ADD_OFFSET(value) ((value) + OFFSET)\n"
+                           "int unrelated = ADD_OFFSET(1);\n"
+                           "int calculate(int value) {\n"
+                           "    return ADD_OFFSET(value) + ADD_OFFSET(value);\n"
+                           "}\n");
+
+    const auto result =
+        codesplit::analysis::inventory_callables(project.build_path(), project.source_path(), 1024);
+
+    expect(static_cast<bool>(result), "source using macros should be inventoried");
+    const auto* callable = find_callable(result, "calculate");
+    expect(callable != nullptr, "callable using macros should be found");
+    if (callable == nullptr) {
+        return;
+    }
+
+    expect(result.macros.size() == 1,
+           "only direct macro use inside the callable should produce a dependency");
+    const auto* dependency = find_macro_dependency(result, callable->symbol_id, "ADD_OFFSET");
+    expect(dependency != nullptr, "direct macro use should produce a dependency");
+    if (dependency != nullptr) {
+        expect(dependency->source_qualified_name == "calculate",
+               "macro dependency should retain the source name");
+        expect(dependency->definition.has_value(),
+               "source-defined macro should retain its definition range");
+        if (dependency->definition.has_value()) {
+            expect(dependency->definition->begin_line == 2,
+                   "macro dependency should retain the definition line");
+        }
+        expect(dependency->expansions.size() == 2,
+               "repeated uses should share one edge with two origins");
+        if (dependency->expansions.size() == 2) {
+            expect(dependency->expansions[0].begin_line == 5 &&
+                       dependency->expansions[1].begin_line == 5,
+                   "macro uses should retain their expansion line");
+            expect(dependency->expansions[0].begin_offset != dependency->expansions[1].begin_offset,
+                   "separate macro uses should retain distinct offsets");
+        }
+    }
+    expect(find_macro_dependency(result, callable->symbol_id, "OFFSET") == nullptr,
+           "nested macro expansion should not be reported as direct source use");
 }
 
 void inventories_c_and_cpp_language_standards() {
@@ -547,6 +603,7 @@ int main() {
     reports_frontend_errors();
     inventories_angled_include();
     inventories_callable_linkage();
+    inventories_direct_macro_dependencies();
     inventories_c_and_cpp_language_standards();
     rejects_missing_compilation_database();
 
