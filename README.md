@@ -15,6 +15,9 @@ codesplit analyze <file> [--build-path <directory>] [--max-size-kb <number>]
 codesplit plan-move <file> --symbol-id <usr> --target <file>
                     [--build-path <directory>] [--max-size-kb <number>]
                     [--format <text|json>]
+codesplit dry-run-move <file> --symbol-id <usr> --target <file>
+                      [--build-path <directory>] [--max-size-kb <number>]
+                      [--format <text|json>]
 ```
 
 Команда выводит путь, размер файла в байтах, количество строк, признак превышения заданного
@@ -38,12 +41,14 @@ callable и сохраняют диапазон определения и все
 
 `plan-move` выбирает одну свободную функцию по USR. Для допустимого кандидата команда показывает
 будущие шаги переноса; иначе перечисляет все найденные блокирующие причины и возвращает код 3.
-Сейчас обе команды не изменяют исходники и не создают целевой файл. Для автоматической обработки
-результат можно вывести в JSON:
+`dry-run-move` дополнительно строит две точные половинно-открытые текстовые замены, проверяет их
+диапазоны и отсутствие пересечений. Сейчас все три команды не изменяют исходники и не создают
+целевой файл. Для автоматической обработки результат можно вывести в JSON:
 
 ```text
 codesplit analyze src/large.cpp --format json
 codesplit plan-move src/large.cpp --symbol-id <usr> --target src/isolated.cpp --format json
+codesplit dry-run-move src/large.cpp --symbol-id <usr> --target src/isolated.cpp --format json
 ```
 
 ## Загрузка зависимостей
