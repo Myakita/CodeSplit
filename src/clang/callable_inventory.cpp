@@ -508,12 +508,13 @@ class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
         callable.returns_void = declaration->getReturnType()->isVoidType();
         for (const auto* parameter : declaration->parameters()) {
             callable.parameter_names.push_back(parameter->getNameAsString());
-            if (parameter->getName().empty()) {
+            if (parameter->getName().empty() || parameter->getType()->isRValueReferenceType()) {
                 add_constraint(callable, CallableConstraint::delegation_unsupported);
             }
         }
         if (declaration->isVariadic() || declaration->getDescribedFunctionTemplate() != nullptr ||
-            declaration->isFunctionTemplateSpecialization()) {
+            declaration->isFunctionTemplateSpecialization() || declaration->isInlineSpecified() ||
+            declaration->getReturnType()->getContainedAutoType() != nullptr) {
             add_constraint(callable, CallableConstraint::delegation_unsupported);
         }
         callable.enclosing_namespaces = enclosing_lexical_namespaces(*declaration);

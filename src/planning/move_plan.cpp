@@ -100,6 +100,12 @@ MovePlan plan_callable_move(const std::filesystem::path& source_path,
         add_blocker(plan, MovePlanBlockerKind::non_external_linkage,
                     "callable must have external linkage");
     }
+    if (callable->name.empty() || !callable->body.has_value() ||
+        callable->name_offset < callable->begin_offset ||
+        callable->name_offset + callable->name.size() > callable->body->begin_offset) {
+        add_blocker(plan, MovePlanBlockerKind::callable_constraint,
+                    "delegation_metadata_unavailable");
+    }
     for (const auto constraint : callable->constraints) {
         add_blocker(plan, MovePlanBlockerKind::callable_constraint,
                     std::string{constraint_name(constraint)});
@@ -142,7 +148,7 @@ MovePlan plan_callable_move(const std::filesystem::path& source_path,
             {.kind = MovePlanStepKind::create_implementation},
             {.kind = MovePlanStepKind::replace_body_with_delegate},
             {.kind = MovePlanStepKind::validate_frontend},
-            {.kind = MovePlanStepKind::build_and_test},
+            {.kind = MovePlanStepKind::build_target},
         };
     }
 

@@ -171,8 +171,8 @@ std::string_view step_name(planning::MovePlanStepKind kind) {
         return "replace_body_with_delegate";
     case validate_frontend:
         return "validate_frontend";
-    case build_and_test:
-        return "build_and_test";
+    case build_target:
+        return "build_target";
     }
     return "unknown";
 }

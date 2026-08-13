@@ -239,7 +239,7 @@ void formats_ready_move_plan() {
                 {.kind = codesplit::planning::MovePlanStepKind::create_implementation},
                 {.kind = codesplit::planning::MovePlanStepKind::replace_body_with_delegate},
                 {.kind = codesplit::planning::MovePlanStepKind::validate_frontend},
-                {.kind = codesplit::planning::MovePlanStepKind::build_and_test},
+                {.kind = codesplit::planning::MovePlanStepKind::build_target},
             },
     };
 
@@ -255,7 +255,7 @@ void formats_ready_move_plan() {
                  "1. create extracted implementation in target\n"
                  "2. replace source body with a delegating call\n"
                  "3. repeat frontend analysis\n"
-                 "4. build and test affected project\n",
+                 "4. build affected target\n",
                  "text move plan should expose ordered read-only steps");
 }
 

@@ -122,8 +122,8 @@ std::string_view step_name(planning::MovePlanStepKind kind) {
         return "replace source body with a delegating call";
     case validate_frontend:
         return "repeat frontend analysis";
-    case build_and_test:
-        return "build and test affected project";
+    case build_target:
+        return "build affected target";
     }
     return "unknown";
 }

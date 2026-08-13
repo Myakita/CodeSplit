@@ -614,6 +614,26 @@ void rejects_missing_compilation_database() {
            "inventory error should explain the missing database");
 }
 
+void marks_signatures_that_cannot_delegate_safely() {
+    const TemporaryProject project;
+    project.replace_source("inline int inline_function(int value) { return value; }\n"
+                           "int unnamed_parameter(int) { return 1; }\n"
+                           "int rvalue_parameter(int&& value) { return value; }\n");
+
+    const auto result =
+        codesplit::analysis::inventory_callables(project.build_path(), project.source_path(), 1024);
+
+    for (const auto* name : {"inline_function", "unnamed_parameter", "rvalue_parameter"}) {
+        const auto* callable = find_callable(result, name);
+        expect(callable != nullptr, std::string{name} + " should be inventoried");
+        if (callable != nullptr) {
+            expect(has_constraint(*callable,
+                                  codesplit::analysis::CallableConstraint::delegation_unsupported),
+                   std::string{name} + " should block unsafe delegation");
+        }
+    }
+}
+
 void adapts_compilation_command_for_generated_source() {
     const TemporaryProject project;
     const auto original =
@@ -640,6 +660,7 @@ int main() {
     inventories_callable_linkage();
     inventories_direct_macro_dependencies();
     inventories_c_and_cpp_language_standards();
+    marks_signatures_that_cannot_delegate_safely();
     rejects_missing_compilation_database();
     adapts_compilation_command_for_generated_source();
 

@@ -26,7 +26,7 @@ enum class MovePlanStepKind {
     create_implementation,
     replace_body_with_delegate,
     validate_frontend,
-    build_and_test,
+    build_target,
 };
 
 struct MovePlanBlocker {

@@ -27,6 +27,18 @@ codesplit::analysis::CallableDefinition movable_callable() {
         .linkage = codesplit::analysis::SymbolLinkage::external,
         .qualified_name = "sample::isolated",
         .symbol_id = "c:@N@sample@F@isolated#I#",
+        .name = "isolated",
+        .parameter_names = {"value"},
+        .returns_void = false,
+        .name_offset = 104,
+        .body =
+            codesplit::analysis::SourceRange{
+                .path = "src/large.cpp",
+                .begin_offset = 125,
+                .end_offset = 160,
+                .begin_line = 8,
+                .end_line = 10,
+            },
         .enclosing_namespaces = {"sample"},
         .declaration =
             codesplit::analysis::SourceRange{
@@ -79,8 +91,8 @@ void plans_isolated_external_function() {
                "plan should retain a delegating original function");
         expect(plan.steps[2].kind == codesplit::planning::MovePlanStepKind::validate_frontend,
                "plan should repeat frontend analysis");
-        expect(plan.steps[3].kind == codesplit::planning::MovePlanStepKind::build_and_test,
-               "plan should finish with build and tests");
+        expect(plan.steps[3].kind == codesplit::planning::MovePlanStepKind::build_target,
+               "plan should finish by building the affected target");
     }
 }
 
