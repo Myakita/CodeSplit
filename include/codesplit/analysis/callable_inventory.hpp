@@ -16,6 +16,8 @@ enum class FrontendDiagnosticSeverity { note, remark, warning, error, fatal };
 
 enum class CallableDependencyKind { direct_call, type_reference, global_read, global_write };
 
+enum class IncludeKind { quoted, angled };
+
 enum class CallableConstraint {
     macro_expansion,
     source_range_unavailable,
@@ -60,10 +62,18 @@ struct CallableDependency {
     std::string target_qualified_name;
 };
 
+struct IncludeDependency {
+    IncludeKind kind = IncludeKind::quoted;
+    std::string written_name;
+    std::filesystem::path resolved_path;
+    SourceRange origin;
+};
+
 struct CallableInventoryResult {
     CompilationCommandResult compilation;
     std::vector<CallableDefinition> callables;
     std::vector<CallableDependency> dependencies;
+    std::vector<IncludeDependency> includes;
     std::vector<FrontendDiagnostic> diagnostics;
     std::string error;
 

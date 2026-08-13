@@ -13,6 +13,8 @@
 #include <clang/Frontend/FrontendAction.h>
 #include <clang/Index/USRGeneration.h>
 #include <clang/Lex/Lexer.h>
+#include <clang/Lex/PPCallbacks.h>
+#include <clang/Lex/Preprocessor.h>
 #include <clang/Tooling/Tooling.h>
 #include <llvm/ADT/SmallString.h>
 
@@ -125,6 +127,73 @@ std::optional<SourceRange> source_range_for(const clang::SourceRange source_rang
         .end_line = source_manager.getExpansionLineNumber(source_range.getEnd()),
     };
 }
+
+std::optional<SourceRange> include_origin_for(clang::SourceLocation hash_location,
+                                              clang::CharSourceRange filename_range,
+                                              clang::SourceManager& source_manager,
+                                              const clang::LangOptions& language_options) {
+    const auto begin = source_manager.getExpansionLoc(hash_location);
+    auto end = source_manager.getExpansionLoc(filename_range.getEnd());
+    if (filename_range.isTokenRange()) {
+        end = clang::Lexer::getLocForEndOfToken(end, 0, source_manager, language_options);
+    }
+    if (begin.isInvalid() || end.isInvalid() ||
+        source_manager.getFileID(begin) != source_manager.getFileID(end)) {
+        return std::nullopt;
+    }
+
+    const auto filename = source_manager.getFilename(begin);
+    if (filename.empty()) {
+        return std::nullopt;
+    }
+
+    return SourceRange{
+        .path = std::filesystem::path{filename.str()},
+        .begin_offset = source_manager.getFileOffset(begin),
+        .end_offset = source_manager.getFileOffset(end),
+        .begin_line = source_manager.getExpansionLineNumber(begin),
+        .end_line = source_manager.getExpansionLineNumber(end),
+    };
+}
+
+class DirectIncludeCollector : public clang::PPCallbacks {
+  public:
+    DirectIncludeCollector(clang::SourceManager& source_manager,
+                           const clang::LangOptions& language_options,
+                           std::vector<IncludeDependency>& includes)
+        : source_manager_{source_manager}, language_options_{language_options},
+          includes_{includes} {}
+
+    void InclusionDirective(clang::SourceLocation hash_location, const clang::Token&,
+                            llvm::StringRef filename, bool is_angled,
+                            clang::CharSourceRange filename_range, clang::OptionalFileEntryRef file,
+                            llvm::StringRef, llvm::StringRef, const clang::Module*, bool,
+                            clang::SrcMgr::CharacteristicKind) override {
+        const auto begin = source_manager_.getExpansionLoc(hash_location);
+        if (!begin.isValid() || !source_manager_.isWrittenInMainFile(begin)) {
+            return;
+        }
+
+        const auto origin =
+            include_origin_for(hash_location, filename_range, source_manager_, language_options_);
+        if (!origin.has_value()) {
+            return;
+        }
+
+        includes_.push_back({
+            .kind = is_angled ? IncludeKind::angled : IncludeKind::quoted,
+            .written_name = filename.str(),
+            .resolved_path = file.has_value() ? std::filesystem::path{file->getName().str()}
+                                              : std::filesystem::path{},
+            .origin = *origin,
+        });
+    }
+
+  private:
+    clang::SourceManager& source_manager_;
+    const clang::LangOptions& language_options_;
+    std::vector<IncludeDependency>& includes_;
+};
 
 void add_dependency(std::vector<CallableDependency>& dependencies, CallableDependencyKind kind,
                     const std::string& source_symbol_id, const std::string& source_qualified_name,
@@ -382,11 +451,15 @@ class CallableConsumer : public clang::ASTConsumer {
 class CallableAction : public clang::ASTFrontendAction {
   public:
     CallableAction(std::uintmax_t size_limit_bytes, std::vector<CallableDefinition>& callables,
-                   std::vector<CallableDependency>& dependencies)
-        : size_limit_bytes_{size_limit_bytes}, callables_{callables}, dependencies_{dependencies} {}
+                   std::vector<CallableDependency>& dependencies,
+                   std::vector<IncludeDependency>& includes)
+        : size_limit_bytes_{size_limit_bytes}, callables_{callables}, dependencies_{dependencies},
+          includes_{includes} {}
 
     std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance& compiler,
                                                           llvm::StringRef) override {
+        compiler.getPreprocessor().addPPCallbacks(std::make_unique<DirectIncludeCollector>(
+            compiler.getSourceManager(), compiler.getLangOpts(), includes_));
         return std::make_unique<CallableConsumer>(compiler.getSourceManager(),
                                                   compiler.getLangOpts(), size_limit_bytes_,
                                                   callables_, dependencies_);
@@ -396,23 +469,28 @@ class CallableAction : public clang::ASTFrontendAction {
     std::uintmax_t size_limit_bytes_;
     std::vector<CallableDefinition>& callables_;
     std::vector<CallableDependency>& dependencies_;
+    std::vector<IncludeDependency>& includes_;
 };
 
 class CallableActionFactory : public clang::tooling::FrontendActionFactory {
   public:
     CallableActionFactory(std::uintmax_t size_limit_bytes,
                           std::vector<CallableDefinition>& callables,
-                          std::vector<CallableDependency>& dependencies)
-        : size_limit_bytes_{size_limit_bytes}, callables_{callables}, dependencies_{dependencies} {}
+                          std::vector<CallableDependency>& dependencies,
+                          std::vector<IncludeDependency>& includes)
+        : size_limit_bytes_{size_limit_bytes}, callables_{callables}, dependencies_{dependencies},
+          includes_{includes} {}
 
     std::unique_ptr<clang::FrontendAction> create() override {
-        return std::make_unique<CallableAction>(size_limit_bytes_, callables_, dependencies_);
+        return std::make_unique<CallableAction>(size_limit_bytes_, callables_, dependencies_,
+                                                includes_);
     }
 
   private:
     std::uintmax_t size_limit_bytes_;
     std::vector<CallableDefinition>& callables_;
     std::vector<CallableDependency>& dependencies_;
+    std::vector<IncludeDependency>& includes_;
 };
 
 class SingleCommandDatabase : public clang::tooling::CompilationDatabase {
@@ -467,10 +545,12 @@ CallableInventoryResult inventory_callables(const std::filesystem::path& build_p
     clang::tooling::ClangTool tool{database, {detail::path_to_utf8(source_path)}};
     CollectingDiagnosticConsumer diagnostic_consumer{result.diagnostics};
     tool.setDiagnosticConsumer(&diagnostic_consumer);
-    CallableActionFactory action_factory{size_limit_bytes, result.callables, result.dependencies};
+    CallableActionFactory action_factory{size_limit_bytes, result.callables, result.dependencies,
+                                         result.includes};
     if (tool.run(&action_factory) != 0) {
         result.callables.clear();
         result.dependencies.clear();
+        result.includes.clear();
         result.error = "Clang frontend failed to analyze: " + detail::path_to_utf8(source_path);
     }
 

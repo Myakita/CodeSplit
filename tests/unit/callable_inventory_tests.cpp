@@ -37,8 +37,12 @@ class TemporaryProject {
                 ("codesplit_callable_inventory_" + std::to_string(suffix));
         std::filesystem::create_directories(build_path());
 
+        std::ofstream nested_header{nested_header_path()};
+        nested_header << "#pragma once\n";
+
         std::ofstream header{header_path()};
-        header << "namespace sample {\n"
+        header << "#include \"nested.hpp\"\n"
+                  "namespace sample {\n"
                   "class Worker {\n"
                   "public:\n"
                   "    int run(int) const &;\n"
@@ -73,8 +77,8 @@ class TemporaryProject {
                     "    \"directory\": \""
                  << path_to_utf8(root_) << "\",\n"
                  << "    \"file\": \"" << path_to_utf8(source_path()) << "\",\n"
-                 << "    \"arguments\": [\"clang-cl\", \"/std:c++20\", \"/c\", \""
-                 << path_to_utf8(source_path()) << "\"]\n"
+                 << "    \"arguments\": [\"clang-cl\", \"/std:c++20\", \"/I" << path_to_utf8(root_)
+                 << "\", \"/c\", \"" << path_to_utf8(source_path()) << "\"]\n"
                  << "  }\n"
                     "]\n";
     }
@@ -89,6 +93,7 @@ class TemporaryProject {
 
     [[nodiscard]] std::filesystem::path source_path() const { return root_ / "sample.cpp"; }
     [[nodiscard]] std::filesystem::path header_path() const { return root_ / "worker.hpp"; }
+    [[nodiscard]] std::filesystem::path nested_header_path() const { return root_ / "nested.hpp"; }
     [[nodiscard]] std::filesystem::path build_path() const { return root_ / "build"; }
 
     void replace_source(const std::string& content) const {
@@ -210,6 +215,23 @@ void inventories_source_definitions() {
 
     expect(static_cast<bool>(result), "valid translation unit should be inventoried");
     expect(static_cast<bool>(result.compilation), "used compilation command should be returned");
+    expect(result.includes.size() == 1,
+           "only direct includes from the main file should be retained");
+    if (result.includes.size() == 1) {
+        const auto& include = result.includes.front();
+        expect(include.kind == codesplit::analysis::IncludeKind::quoted,
+               "quoted include should retain its kind");
+        expect(include.written_name == "worker.hpp",
+               "include should retain the name written in source");
+        expect(include.resolved_path.filename() == project.header_path().filename(),
+               "include should retain its resolved target path");
+        expect(include.origin.path.filename() == project.source_path().filename(),
+               "include should retain the file containing the directive");
+        expect(include.origin.begin_line == 1 && include.origin.end_line == 1,
+               "include should retain its source line");
+        expect(include.origin.end_offset > include.origin.begin_offset,
+               "include should retain a non-empty source range");
+    }
     const auto* warning =
         find_diagnostic(result, codesplit::analysis::FrontendDiagnosticSeverity::warning,
                         "CodeSplit diagnostic test");
@@ -255,14 +277,14 @@ void inventories_source_definitions() {
         if (method->declaration.has_value()) {
             expect(method->declaration->path.filename() == project.header_path().filename(),
                    "method declaration should retain its header path");
-            expect(method->declaration->begin_line == 4,
+            expect(method->declaration->begin_line == 5,
                    "overload should link to the matching declaration");
         }
         expect(method->owning_record.has_value(), "method should link to its owning class");
         if (method->owning_record.has_value()) {
             expect(method->owning_record->path.filename() == project.header_path().filename(),
                    "owning class should retain its header path");
-            expect(method->owning_record->begin_line == 2,
+            expect(method->owning_record->begin_line == 3,
                    "owning class should retain its source line");
         }
     }
@@ -275,7 +297,7 @@ void inventories_source_definitions() {
                "overloads should retain distinct symbol identifiers");
         expect(overload->declaration.has_value(), "overload should link to its declaration");
         if (overload->declaration.has_value()) {
-            expect(overload->declaration->begin_line == 5,
+            expect(overload->declaration->begin_line == 6,
                    "overload should not link by qualified name alone");
         }
     }
@@ -365,21 +387,40 @@ void inventories_source_definitions() {
 
 void reports_frontend_errors() {
     const TemporaryProject project;
-    project.replace_source("int broken( {\n");
+    project.replace_source("#include \"worker.hpp\"\nint broken( {\n");
 
     const auto result =
         codesplit::analysis::inventory_callables(project.build_path(), project.source_path(), 1024);
 
     expect(!result, "frontend errors should fail callable inventory");
     expect(result.callables.empty(), "partial callable inventory should be discarded");
+    expect(result.dependencies.empty(), "partial dependencies should be discarded");
+    expect(result.includes.empty(), "partial includes should be discarded");
     const auto* error =
         find_diagnostic(result, codesplit::analysis::FrontendDiagnosticSeverity::error, "expected");
     expect(error != nullptr, "frontend error should be retained");
     if (error != nullptr) {
         expect(error->path.filename() == project.source_path().filename(),
                "frontend error should retain its source path");
-        expect(error->line == 1, "frontend error should retain its source line");
+        expect(error->line == 2, "frontend error should retain its source line");
         expect(error->column > 0, "frontend error should retain its source column");
+    }
+}
+
+void inventories_angled_include() {
+    const TemporaryProject project;
+    project.replace_source("#include <worker.hpp>\n");
+
+    const auto result =
+        codesplit::analysis::inventory_callables(project.build_path(), project.source_path(), 1024);
+
+    expect(static_cast<bool>(result), "source with an angled include should be inventoried");
+    expect(result.includes.size() == 1, "angled include should produce one direct dependency");
+    if (result.includes.size() == 1) {
+        expect(result.includes.front().kind == codesplit::analysis::IncludeKind::angled,
+               "angled include should retain its kind");
+        expect(result.includes.front().written_name == "worker.hpp",
+               "angled include should retain its written name");
     }
 }
 
@@ -469,6 +510,7 @@ void rejects_missing_compilation_database() {
 int main() {
     inventories_source_definitions();
     reports_frontend_errors();
+    inventories_angled_include();
     inventories_c_and_cpp_language_standards();
     rejects_missing_compilation_database();
 
