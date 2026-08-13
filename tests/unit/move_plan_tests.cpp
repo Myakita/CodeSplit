@@ -27,6 +27,7 @@ codesplit::analysis::CallableDefinition movable_callable() {
         .linkage = codesplit::analysis::SymbolLinkage::external,
         .qualified_name = "sample::isolated",
         .symbol_id = "c:@N@sample@F@isolated#I#",
+        .enclosing_namespaces = {"sample"},
         .declaration =
             codesplit::analysis::SourceRange{
                 .path = "include/isolated.hpp",
@@ -47,6 +48,11 @@ void plans_isolated_external_function() {
     codesplit::analysis::CallableInventoryResult inventory;
     inventory.compilation.command.working_directory = "build";
     inventory.callables.push_back(movable_callable());
+    inventory.includes.push_back({
+        .kind = codesplit::analysis::IncludeKind::quoted,
+        .written_name = "isolated.hpp",
+        .resolved_path = "include/isolated.hpp",
+    });
 
     const auto plan = codesplit::planning::plan_callable_move(
         "src/large.cpp", "src/isolated.cpp", inventory.callables.front().symbol_id, inventory);
@@ -54,6 +60,9 @@ void plans_isolated_external_function() {
     expect(static_cast<bool>(plan), "isolated external function should produce a ready plan");
     expect(plan.read_only, "first move plan should be read-only");
     expect(plan.qualified_name == "sample::isolated", "plan should retain the callable name");
+    expect(plan.declaration_include.has_value(), "plan should retain the declaring include");
+    expect(plan.enclosing_namespaces == std::vector<std::string>{"sample"},
+           "plan should retain lexical namespace context");
     expect(plan.definition.has_value(), "plan should retain the definition range");
     if (plan.definition.has_value()) {
         expect(plan.definition->path == "src/large.cpp",
@@ -148,12 +157,26 @@ void blocks_invalid_request() {
         "source and target collision should be blocked");
 }
 
+void blocks_declaration_without_direct_include() {
+    codesplit::analysis::CallableInventoryResult inventory;
+    inventory.compilation.command.working_directory = "build";
+    inventory.callables.push_back(movable_callable());
+
+    const auto plan = codesplit::planning::plan_callable_move(
+        "src/large.cpp", "src/isolated.cpp", inventory.callables.front().symbol_id, inventory);
+
+    expect(has_blocker(plan,
+                       codesplit::planning::MovePlanBlockerKind::declaration_include_unavailable),
+           "header declaration without a direct include should block target generation");
+}
+
 } // namespace
 
 int main() {
     plans_isolated_external_function();
     blocks_unsupported_or_unsafe_function();
     blocks_invalid_request();
+    blocks_declaration_without_direct_include();
 
     if (failure_count == 0) {
         std::cout << "All move-plan tests passed.\n";

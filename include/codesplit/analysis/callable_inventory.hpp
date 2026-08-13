@@ -48,6 +48,7 @@ struct CallableDefinition {
     bool in_anonymous_namespace = false;
     std::string qualified_name;
     std::string symbol_id;
+    std::vector<std::string> enclosing_namespaces;
     std::optional<SourceRange> declaration;
     std::optional<SourceRange> owning_record;
     std::uintmax_t begin_offset = 0;

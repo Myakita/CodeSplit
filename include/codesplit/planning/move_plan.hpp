@@ -18,6 +18,7 @@ enum class MovePlanBlockerKind {
     non_external_linkage,
     outgoing_dependency,
     incoming_dependency_without_declaration,
+    declaration_include_unavailable,
     macro_dependency,
 };
 
@@ -43,6 +44,8 @@ struct MovePlan {
     std::string symbol_id;
     std::string qualified_name;
     std::optional<analysis::SourceRange> definition;
+    std::vector<std::string> enclosing_namespaces;
+    std::optional<analysis::IncludeDependency> declaration_include;
     std::vector<MovePlanBlocker> blockers;
     std::vector<MovePlanStep> steps;
     bool read_only = true;

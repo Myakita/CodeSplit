@@ -103,6 +103,8 @@ std::string_view blocker_kind_name(planning::MovePlanBlockerKind kind) {
         return "outgoing dependency";
     case incoming_dependency_without_declaration:
         return "incoming dependency without declaration";
+    case declaration_include_unavailable:
+        return "declaration include unavailable";
     case macro_dependency:
         return "macro dependency";
     }
@@ -190,6 +192,16 @@ void append_callable(std::ostringstream& report, const analysis::CallableDefinit
     }
     if (!callable.symbol_id.empty()) {
         report << "  Symbol ID: " << callable.symbol_id << '\n';
+    }
+    if (!callable.enclosing_namespaces.empty()) {
+        report << "  Lexical namespaces: ";
+        for (std::size_t index = 0; index < callable.enclosing_namespaces.size(); ++index) {
+            if (index != 0) {
+                report << "::";
+            }
+            report << callable.enclosing_namespaces[index];
+        }
+        report << '\n';
     }
     if (callable.declaration.has_value()) {
         report << "  Declaration: " << callable.declaration->path.string() << ", lines "
@@ -281,6 +293,19 @@ std::string format_text_move_plan(const planning::MovePlan& plan) {
         report << "Definition: lines " << plan.definition->begin_line << '-'
                << plan.definition->end_line << ", offsets " << plan.definition->begin_offset << '-'
                << plan.definition->end_offset << '\n';
+    }
+    if (!plan.enclosing_namespaces.empty()) {
+        report << "Namespace context: ";
+        for (std::size_t index = 0; index < plan.enclosing_namespaces.size(); ++index) {
+            if (index != 0) {
+                report << "::";
+            }
+            report << plan.enclosing_namespaces[index];
+        }
+        report << '\n';
+    }
+    if (plan.declaration_include.has_value()) {
+        report << "Declaring include: " << plan.declaration_include->written_name << '\n';
     }
     if (!plan.blockers.empty()) {
         report << "Blockers: " << plan.blockers.size() << '\n';

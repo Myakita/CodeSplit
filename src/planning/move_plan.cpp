@@ -42,6 +42,10 @@ void add_blocker(MovePlan& plan, MovePlanBlockerKind kind, std::string detail) {
     plan.blockers.push_back({.kind = kind, .detail = std::move(detail)});
 }
 
+bool same_normalized_path(const std::filesystem::path& left, const std::filesystem::path& right) {
+    return normalized_absolute_path(left) == normalized_absolute_path(right);
+}
+
 } // namespace
 
 MovePlan plan_callable_move(const std::filesystem::path& source_path,
@@ -71,6 +75,7 @@ MovePlan plan_callable_move(const std::filesystem::path& source_path,
     }
 
     plan.qualified_name = callable->qualified_name;
+    plan.enclosing_namespaces = callable->enclosing_namespaces;
     plan.definition = analysis::SourceRange{
         .path = source_path,
         .begin_offset = callable->begin_offset,
@@ -108,6 +113,19 @@ MovePlan plan_callable_move(const std::filesystem::path& source_path,
     for (const auto& macro : inventory.macros) {
         if (macro.source_symbol_id == symbol_id) {
             add_blocker(plan, MovePlanBlockerKind::macro_dependency, macro.macro_name);
+        }
+    }
+
+    if (callable->declaration.has_value() &&
+        !same_normalized_path(callable->declaration->path, source_path)) {
+        const auto include = std::ranges::find_if(inventory.includes, [&](const auto& candidate) {
+            return same_normalized_path(candidate.resolved_path, callable->declaration->path);
+        });
+        if (include == inventory.includes.end()) {
+            add_blocker(plan, MovePlanBlockerKind::declaration_include_unavailable,
+                        callable->declaration->path.string());
+        } else {
+            plan.declaration_include = *include;
         }
     }
 

@@ -152,6 +152,8 @@ std::string_view blocker_kind_name(planning::MovePlanBlockerKind kind) {
         return "outgoing_dependency";
     case incoming_dependency_without_declaration:
         return "incoming_dependency_without_declaration";
+    case declaration_include_unavailable:
+        return "declaration_include_unavailable";
     case macro_dependency:
         return "macro_dependency";
     }
@@ -217,6 +219,17 @@ void append_constraints(std::ostringstream& report,
             report << ", ";
         }
         report << '"' << constraint_name(constraints[index]) << '"';
+    }
+    report << ']';
+}
+
+void append_strings(std::ostringstream& report, const std::vector<std::string>& values) {
+    report << '[';
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (index != 0) {
+            report << ", ";
+        }
+        report << '"' << escape_json_string(values[index]) << '"';
     }
     report << ']';
 }
@@ -382,6 +395,9 @@ void append_callable(std::ostringstream& report, const analysis::CallableDefinit
     } else {
         report << "        \"symbol_id\": \"" << escape_json_string(callable.symbol_id) << "\",\n";
     }
+    report << "        \"enclosing_namespaces\": ";
+    append_strings(report, callable.enclosing_namespaces);
+    report << ",\n";
     report << "        \"declaration\": ";
     append_source_range(report, callable.declaration);
     report << ",\n";
@@ -465,6 +481,15 @@ std::string format_json_move_plan(const planning::MovePlan& plan) {
     report << "  \"target\": \"" << escape_json_string(path_to_utf8(plan.target_path)) << "\",\n";
     report << "  \"symbol_id\": \"" << escape_json_string(plan.symbol_id) << "\",\n";
     report << "  \"qualified_name\": \"" << escape_json_string(plan.qualified_name) << "\",\n";
+    report << "  \"enclosing_namespaces\": ";
+    append_strings(report, plan.enclosing_namespaces);
+    report << ",\n";
+    report << "  \"declaration_include\": ";
+    if (plan.declaration_include.has_value()) {
+        report << "\"" << escape_json_string(plan.declaration_include->written_name) << "\",\n";
+    } else {
+        report << "null,\n";
+    }
     report << "  \"definition\": ";
     if (plan.definition.has_value()) {
         report << "{\n";

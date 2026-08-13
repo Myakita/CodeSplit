@@ -271,6 +271,8 @@ void inventories_source_definitions() {
                "free function should retain a non-empty source range");
         expect(function->size_bytes == function->end_offset - function->begin_offset,
                "callable size should be derived from byte offsets");
+        expect(function->enclosing_namespaces == std::vector<std::string>{"sample"},
+               "free function should retain its lexical namespace context");
         expect(
             has_constraint(*function, codesplit::analysis::CallableConstraint::exceeds_size_limit),
             "callable larger than the configured limit should be marked");

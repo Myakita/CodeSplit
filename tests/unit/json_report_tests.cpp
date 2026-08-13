@@ -33,6 +33,7 @@ void formats_source_file_as_json() {
                     .in_anonymous_namespace = true,
                     .qualified_name = "sample::helper",
                     .symbol_id = "c:@N@sample@F@helper#I#",
+                    .enclosing_namespaces = {"sample"},
                     .declaration =
                         codesplit::analysis::SourceRange{
                             .path = "include/helper.hpp",
@@ -234,6 +235,7 @@ void formats_source_file_as_json() {
                  "        \"in_anonymous_namespace\": true,\n"
                  "        \"qualified_name\": \"sample::helper\",\n"
                  "        \"symbol_id\": \"c:@N@sample@F@helper#I#\",\n"
+                 "        \"enclosing_namespaces\": [\"sample\"],\n"
                  "        \"declaration\": {\n"
                  "          \"path\": \"include/helper.hpp\",\n"
                  "          \"begin_offset\": 10,\n"
@@ -329,6 +331,8 @@ void formats_blocked_move_plan() {
                  "  \"target\": \"src/new.cpp\",\n"
                  "  \"symbol_id\": \"c:@F@dependent#\",\n"
                  "  \"qualified_name\": \"dependent\",\n"
+                 "  \"enclosing_namespaces\": [],\n"
+                 "  \"declaration_include\": null,\n"
                  "  \"definition\": {\n"
                  "    \"path\": \"src/large.cpp\",\n"
                  "    \"begin_offset\": 20,\n"

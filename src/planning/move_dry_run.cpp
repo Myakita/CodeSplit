@@ -25,6 +25,38 @@ std::string_view line_ending_for(const std::string& source_text, std::size_t end
     return "\n";
 }
 
+std::string target_text_for(const MovePlan& plan, std::string_view definition,
+                            std::string_view line_ending) {
+    std::string target_text;
+    if (plan.declaration_include.has_value()) {
+        const auto angled = plan.declaration_include->kind == analysis::IncludeKind::angled;
+        target_text += "#include ";
+        target_text += angled ? '<' : '"';
+        target_text += plan.declaration_include->written_name;
+        target_text += angled ? '>' : '"';
+        target_text += line_ending;
+        target_text += line_ending;
+    }
+    for (const auto& namespace_name : plan.enclosing_namespaces) {
+        target_text += "namespace " + namespace_name + " {";
+        target_text += line_ending;
+    }
+    if (!plan.enclosing_namespaces.empty()) {
+        target_text += line_ending;
+    }
+    target_text += definition;
+    target_text += line_ending;
+    for (auto namespace_name = plan.enclosing_namespaces.rbegin();
+         namespace_name != plan.enclosing_namespaces.rend(); ++namespace_name) {
+        target_text += line_ending;
+        target_text += "} // namespace " + *namespace_name;
+    }
+    if (!plan.enclosing_namespaces.empty()) {
+        target_text += line_ending;
+    }
+    return target_text;
+}
+
 } // namespace
 
 bool replacements_overlap(const TextReplacement& left, const TextReplacement& right) {
@@ -73,6 +105,7 @@ MoveDryRun draft_callable_move(const MovePlan& plan) {
     const auto definition =
         source_text.substr(static_cast<std::size_t>(begin), static_cast<std::size_t>(end - begin));
     const auto line_ending = line_ending_for(source_text, static_cast<std::size_t>(end));
+    auto target_text = target_text_for(plan, definition, line_ending);
     dry_run.replacements = {
         {.path = plan.source_path,
          .begin_offset = begin,
@@ -81,7 +114,7 @@ MoveDryRun draft_callable_move(const MovePlan& plan) {
         {.path = plan.target_path,
          .begin_offset = 0,
          .end_offset = 0,
-         .replacement_text = definition + std::string{line_ending}},
+         .replacement_text = std::move(target_text)},
     };
     if (replacements_overlap(dry_run.replacements[0], dry_run.replacements[1])) {
         dry_run.replacements.clear();

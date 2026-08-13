@@ -129,6 +129,19 @@ bool is_in_anonymous_namespace(const clang::Decl& declaration) {
     return false;
 }
 
+std::vector<std::string> enclosing_lexical_namespaces(const clang::Decl& declaration) {
+    std::vector<std::string> namespaces;
+    for (auto* context = declaration.getLexicalDeclContext(); context != nullptr;
+         context = context->getParent()) {
+        const auto* namespace_declaration = llvm::dyn_cast<clang::NamespaceDecl>(context);
+        if (namespace_declaration != nullptr && !namespace_declaration->isAnonymousNamespace()) {
+            namespaces.push_back(namespace_declaration->getNameAsString());
+        }
+    }
+    std::ranges::reverse(namespaces);
+    return namespaces;
+}
+
 std::optional<SourceRange> source_range_for(const clang::SourceRange source_range,
                                             clang::SourceManager& source_manager,
                                             const clang::LangOptions& language_options) {
@@ -491,6 +504,7 @@ class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
         callable.in_anonymous_namespace = is_in_anonymous_namespace(*canonical_declaration);
         callable.qualified_name = declaration->getQualifiedNameAsString();
         callable.symbol_id = symbol_id_for(*canonical_declaration);
+        callable.enclosing_namespaces = enclosing_lexical_namespaces(*declaration);
         if (canonical_declaration != declaration) {
             callable.declaration = source_range_for(canonical_declaration->getSourceRange(),
                                                     source_manager_, language_options_);

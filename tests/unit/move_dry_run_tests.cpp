@@ -109,6 +109,32 @@ void preserves_crlf_line_endings() {
            "target insertion should preserve CRLF line endings");
 }
 
+void creates_declaring_include_and_namespace_context() {
+    TemporaryDirectory directory;
+    const auto source = directory.path() / "source.cpp";
+    const auto target = directory.path() / "target.cpp";
+    const std::string contents = "int isolated() { return 1; }\n";
+    std::ofstream{source, std::ios::binary} << contents;
+    auto plan = ready_plan(source, target);
+    plan.definition->begin_offset = 0;
+    plan.definition->end_offset = contents.size() - 1;
+    plan.enclosing_namespaces = {"company", "legacy"};
+    plan.declaration_include = codesplit::analysis::IncludeDependency{
+        .kind = codesplit::analysis::IncludeKind::quoted,
+        .written_name = "legacy/isolated.hpp",
+    };
+
+    const auto dry_run = codesplit::planning::draft_callable_move(plan);
+
+    expect(static_cast<bool>(dry_run), "namespace function should produce a dry run");
+    expect(dry_run.replacements[1].replacement_text ==
+               "#include \"legacy/isolated.hpp\"\n\n"
+               "namespace company {\nnamespace legacy {\n\n"
+               "int isolated() { return 1; }\n\n"
+               "} // namespace legacy\n} // namespace company\n",
+           "target should preserve include and lexical namespace context");
+}
+
 void detects_half_open_range_overlap() {
     using codesplit::planning::TextReplacement;
     const TextReplacement first{.path = "source.cpp", .begin_offset = 10, .end_offset = 20};
@@ -127,5 +153,6 @@ int main() {
     drafts_two_non_overlapping_replacements();
     rejects_existing_target();
     preserves_crlf_line_endings();
+    creates_declaring_include_and_namespace_context();
     detects_half_open_range_overlap();
 }
