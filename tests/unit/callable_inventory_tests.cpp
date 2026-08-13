@@ -424,6 +424,41 @@ void inventories_angled_include() {
     }
 }
 
+void inventories_callable_linkage() {
+    const TemporaryProject project;
+    project.replace_source("int external_function() { return 1; }\n"
+                           "static int internal_function() { return 2; }\n"
+                           "namespace { int anonymous_function() { return 3; } }\n");
+
+    const auto result =
+        codesplit::analysis::inventory_callables(project.build_path(), project.source_path(), 1024);
+
+    expect(static_cast<bool>(result), "callable linkage source should be inventoried");
+    const auto* external = find_callable(result, "external_function");
+    const auto* internal = find_callable(result, "internal_function");
+    const auto* anonymous = find_callable(result, "(anonymous namespace)::anonymous_function");
+    expect(external != nullptr && internal != nullptr && anonymous != nullptr,
+           "external, static, and anonymous callables should be found");
+    if (external != nullptr) {
+        expect(external->linkage == codesplit::analysis::SymbolLinkage::external,
+               "ordinary namespace function should have external linkage");
+        expect(!external->in_anonymous_namespace,
+               "ordinary namespace function should not be marked anonymous");
+    }
+    if (internal != nullptr) {
+        expect(internal->linkage == codesplit::analysis::SymbolLinkage::internal,
+               "static namespace function should have internal linkage");
+        expect(!internal->in_anonymous_namespace,
+               "static namespace function should not be marked anonymous");
+    }
+    if (anonymous != nullptr) {
+        expect(anonymous->linkage == codesplit::analysis::SymbolLinkage::internal,
+               "anonymous namespace function should retain internal linkage");
+        expect(anonymous->in_anonymous_namespace,
+               "anonymous namespace function should retain its semantic origin");
+    }
+}
+
 void inventories_c_and_cpp_language_standards() {
     struct LanguageCase {
         std::string extension;
@@ -511,6 +546,7 @@ int main() {
     inventories_source_definitions();
     reports_frontend_errors();
     inventories_angled_include();
+    inventories_callable_linkage();
     inventories_c_and_cpp_language_standards();
     rejects_missing_compilation_database();
 

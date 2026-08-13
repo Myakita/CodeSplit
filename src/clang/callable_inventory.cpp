@@ -99,6 +99,35 @@ std::string symbol_id_for(const clang::Decl& declaration) {
     return std::string{symbol_id};
 }
 
+SymbolLinkage symbol_linkage_for(const clang::NamedDecl& declaration) {
+    switch (declaration.getLinkageInternal()) {
+    case clang::Linkage::Invalid:
+    case clang::Linkage::None:
+    case clang::Linkage::VisibleNone:
+        return SymbolLinkage::none;
+    case clang::Linkage::Internal:
+        return SymbolLinkage::internal;
+    case clang::Linkage::UniqueExternal:
+        return SymbolLinkage::unique_external;
+    case clang::Linkage::Module:
+        return SymbolLinkage::module;
+    case clang::Linkage::External:
+        return SymbolLinkage::external;
+    }
+    return SymbolLinkage::none;
+}
+
+bool is_in_anonymous_namespace(const clang::Decl& declaration) {
+    for (auto* context = declaration.getDeclContext(); context != nullptr;
+         context = context->getParent()) {
+        const auto* namespace_declaration = llvm::dyn_cast<clang::NamespaceDecl>(context);
+        if (namespace_declaration != nullptr && namespace_declaration->isAnonymousNamespace()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::optional<SourceRange> source_range_for(const clang::SourceRange source_range,
                                             clang::SourceManager& source_manager,
                                             const clang::LangOptions& language_options) {
@@ -373,6 +402,8 @@ class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
         const auto* canonical_declaration = declaration->getCanonicalDecl();
         CallableDefinition callable;
         callable.kind = method == nullptr ? CallableKind::free_function : CallableKind::method;
+        callable.linkage = symbol_linkage_for(*canonical_declaration);
+        callable.in_anonymous_namespace = is_in_anonymous_namespace(*canonical_declaration);
         callable.qualified_name = declaration->getQualifiedNameAsString();
         callable.symbol_id = symbol_id_for(*canonical_declaration);
         if (canonical_declaration != declaration) {

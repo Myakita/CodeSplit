@@ -12,6 +12,8 @@ namespace codesplit::analysis {
 
 enum class CallableKind { free_function, method };
 
+enum class SymbolLinkage { none, internal, unique_external, module, external };
+
 enum class FrontendDiagnosticSeverity { note, remark, warning, error, fatal };
 
 enum class CallableDependencyKind { direct_call, type_reference, global_read, global_write };
@@ -42,6 +44,8 @@ struct FrontendDiagnostic {
 
 struct CallableDefinition {
     CallableKind kind = CallableKind::free_function;
+    SymbolLinkage linkage = SymbolLinkage::none;
+    bool in_anonymous_namespace = false;
     std::string qualified_name;
     std::string symbol_id;
     std::optional<SourceRange> declaration;
