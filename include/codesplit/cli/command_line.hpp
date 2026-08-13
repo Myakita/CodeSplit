@@ -18,6 +18,18 @@ enum class ReportFormat {
     json,
 };
 
+enum class ExitCode : int {
+    success = 0,
+    runtime_error = 1,
+    invalid_command = 2,
+    transformation_blocked = 3,
+    apply_failed = 4,
+};
+
+[[nodiscard]] constexpr int process_exit_code(ExitCode exit_code) noexcept {
+    return static_cast<int>(exit_code);
+}
+
 struct CommandLine {
     Operation operation{Operation::analyze};
     std::filesystem::path input_path;

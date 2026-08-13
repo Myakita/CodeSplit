@@ -7,6 +7,8 @@ project(
     LANGUAGES CXX
 )
 
+include(GNUInstallDirs)
+
 option(CODESPLIT_BUILD_TESTS "Build CodeSplit tests" ON)
 option(CODESPLIT_ENABLE_CLANG "Enable Clang LibTooling integration when available" ON)
 
@@ -113,6 +115,8 @@ target_compile_definitions(codesplit PRIVATE
     CODESPLIT_VERSION="${PROJECT_VERSION}"
     CODESPLIT_CMAKE_COMMAND="${CMAKE_COMMAND}"
 )
+
+install(TARGETS codesplit RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 if(CODESPLIT_BUILD_TESTS)
     enable_testing()

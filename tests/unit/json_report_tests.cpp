@@ -139,6 +139,8 @@ void formats_source_file_as_json() {
 
     expect_equal(report,
                  "{\n"
+                 "  \"schema_version\": 1,\n"
+                 "  \"operation\": \"analyze\",\n"
                  "  \"file\": \"src/large.cpp\",\n"
                  "  \"size_bytes\": 153600,\n"
                  "  \"line_count\": 2048,\n"
@@ -273,6 +275,8 @@ void escapes_special_characters_in_path() {
 
     expect_equal(report,
                  "{\n"
+                 "  \"schema_version\": 1,\n"
+                 "  \"operation\": \"analyze\",\n"
                  "  \"file\": \"folder/\\\"quoted\\\"\\nfile.cpp\",\n"
                  "  \"size_bytes\": 512,\n"
                  "  \"line_count\": 10,\n"
@@ -325,6 +329,8 @@ void formats_blocked_move_plan() {
 
     expect_equal(codesplit::reporting::format_json_move_plan(plan),
                  "{\n"
+                 "  \"schema_version\": 1,\n"
+                 "  \"operation\": \"plan_move\",\n"
                  "  \"status\": \"blocked\",\n"
                  "  \"read_only\": true,\n"
                  "  \"source\": \"src/large.cpp\",\n"
@@ -366,6 +372,8 @@ void formats_blocked_move_dry_run() {
 
     expect_equal(codesplit::reporting::format_json_move_dry_run(dry_run),
                  "{\n"
+                 "  \"schema_version\": 1,\n"
+                 "  \"operation\": \"dry_run_move\",\n"
                  "  \"status\": \"blocked\",\n"
                  "  \"read_only\": true,\n"
                  "  \"source\": \"src/large.cpp\",\n"
@@ -392,6 +400,8 @@ void formats_blocked_move_apply() {
     expect_equal(
         codesplit::reporting::format_json_move_apply(result),
         "{\n"
+        "  \"schema_version\": 1,\n"
+        "  \"operation\": \"apply_move\",\n"
         "  \"status\": \"blocked\",\n"
         "  \"applied\": false,\n"
         "  \"validated\": false,\n"

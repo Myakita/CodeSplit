@@ -424,6 +424,8 @@ std::string format_json_report(const analysis::SourceFileInfo& info, std::uintma
                                const analysis::CallableInventoryResult& inventory) {
     std::ostringstream report;
     report << "{\n";
+    report << "  \"schema_version\": 1,\n";
+    report << "  \"operation\": \"analyze\",\n";
     report << "  \"file\": \"" << escape_json_string(path_to_utf8(info.path)) << "\",\n";
     report << "  \"size_bytes\": " << info.size_bytes << ",\n";
     report << "  \"line_count\": " << info.line_count << ",\n";
@@ -479,6 +481,8 @@ std::string format_json_report(const analysis::SourceFileInfo& info, std::uintma
 std::string format_json_move_plan(const planning::MovePlan& plan) {
     std::ostringstream report;
     report << "{\n";
+    report << "  \"schema_version\": 1,\n";
+    report << "  \"operation\": \"plan_move\",\n";
     report << "  \"status\": \"" << (plan ? "ready" : "blocked") << "\",\n";
     report << "  \"read_only\": " << (plan.read_only ? "true" : "false") << ",\n";
     report << "  \"source\": \"" << escape_json_string(path_to_utf8(plan.source_path)) << "\",\n";
@@ -536,6 +540,8 @@ std::string format_json_move_plan(const planning::MovePlan& plan) {
 std::string format_json_move_dry_run(const planning::MoveDryRun& dry_run) {
     std::ostringstream report;
     report << "{\n";
+    report << "  \"schema_version\": 1,\n";
+    report << "  \"operation\": \"dry_run_move\",\n";
     report << "  \"status\": \"" << (dry_run ? "ready" : "blocked") << "\",\n";
     report << "  \"read_only\": " << (dry_run.read_only ? "true" : "false") << ",\n";
     report << "  \"source\": \"" << escape_json_string(path_to_utf8(dry_run.plan.source_path))
@@ -586,6 +592,8 @@ std::string format_json_move_dry_run(const planning::MoveDryRun& dry_run) {
 std::string format_json_move_apply(const planning::MoveApplyResult& result) {
     std::ostringstream report;
     report << "{\n";
+    report << "  \"schema_version\": 1,\n";
+    report << "  \"operation\": \"apply_move\",\n";
     report << "  \"status\": \"" << (result ? "applied" : "blocked") << "\",\n";
     report << "  \"applied\": " << (result.applied ? "true" : "false") << ",\n";
     report << "  \"validated\": " << (result.validated ? "true" : "false") << ",\n";

@@ -162,6 +162,21 @@ void rejects_missing_build_path_value() {
            "error should identify the missing value");
 }
 
+void exposes_stable_process_exit_codes() {
+    using codesplit::cli::ExitCode;
+    using codesplit::cli::process_exit_code;
+
+    expect(process_exit_code(ExitCode::success) == 0, "success exit code should remain stable");
+    expect(process_exit_code(ExitCode::runtime_error) == 1,
+           "runtime error exit code should remain stable");
+    expect(process_exit_code(ExitCode::invalid_command) == 2,
+           "invalid command exit code should remain stable");
+    expect(process_exit_code(ExitCode::transformation_blocked) == 3,
+           "blocked transformation exit code should remain stable");
+    expect(process_exit_code(ExitCode::apply_failed) == 4,
+           "apply failure exit code should remain stable");
+}
+
 } // namespace
 
 int main() {
@@ -178,6 +193,7 @@ int main() {
     rejects_invalid_report_formats();
     rejects_unknown_command();
     rejects_missing_build_path_value();
+    exposes_stable_process_exit_codes();
 
     if (failure_count == 0) {
         std::cout << "All command-line tests passed.\n";

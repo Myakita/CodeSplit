@@ -38,6 +38,20 @@ if(CODESPLIT_HAS_CLANG_TOOLING)
     add_executable(codesplit_callable_inventory_tests unit/callable_inventory_tests.cpp)
     target_link_libraries(codesplit_callable_inventory_tests PRIVATE codesplit_clang)
     add_test(NAME codesplit_callable_inventory_tests COMMAND codesplit_callable_inventory_tests)
+
+    add_test(
+        NAME codesplit_mvp_e2e
+        COMMAND ${CMAKE_COMMAND}
+            -DCODESPLIT_EXECUTABLE=$<TARGET_FILE:codesplit>
+            -DEXAMPLE_SOURCE=${PROJECT_SOURCE_DIR}/examples/mvp
+            -DE2E_ROOT=${CMAKE_CURRENT_BINARY_DIR}/mvp-e2e
+            -DTEST_GENERATOR=${CMAKE_GENERATOR}
+            -DTEST_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
+            -DTEST_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+            -DTEST_RC_COMPILER=${CMAKE_RC_COMPILER}
+            -DTEST_MT=${CMAKE_MT}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/e2e/mvp_move.cmake
+    )
 else()
     add_executable(codesplit_compilation_database_tests
         unit/unavailable_compilation_database_tests.cpp

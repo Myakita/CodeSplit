@@ -77,22 +77,25 @@ restore_cmake_build_graph(const std::filesystem::path& project_root,
 } // namespace
 
 int main(int argc, char* argv[]) {
+    using codesplit::cli::ExitCode;
+    using codesplit::cli::process_exit_code;
+
     const auto command = codesplit::cli::parse_command_line(argc, argv);
 
     if (!command) {
         std::cerr << command.error << '\n';
         std::cerr << codesplit::cli::usage();
-        return 2;
+        return process_exit_code(ExitCode::invalid_command);
     }
 
     if (command.show_help) {
         std::cout << codesplit::cli::usage();
-        return 0;
+        return process_exit_code(ExitCode::success);
     }
 
     if (command.show_version) {
         std::cout << "CodeSplit " << CODESPLIT_VERSION << '\n';
-        return 0;
+        return process_exit_code(ExitCode::success);
     }
 
     constexpr std::uintmax_t bytes_per_kib = 1024U;
@@ -101,7 +104,7 @@ int main(int argc, char* argv[]) {
         codesplit::analysis::analyze_source_file(command.input_path, size_limit_bytes);
     if (!analysis) {
         std::cerr << analysis.error << '\n';
-        return 1;
+        return process_exit_code(ExitCode::runtime_error);
     }
 
     const auto inventory = codesplit::analysis::inventory_callables(
@@ -165,23 +168,25 @@ int main(int argc, char* argv[]) {
                     std::cout << codesplit::reporting::format_text_move_apply(result);
                 }
                 if (result) {
-                    return 0;
+                    return process_exit_code(ExitCode::success);
                 }
-                return dry_run ? 4 : 3;
+                return process_exit_code(dry_run ? ExitCode::apply_failed
+                                                 : ExitCode::transformation_blocked);
             }
             if (command.report_format == codesplit::cli::ReportFormat::json) {
                 std::cout << codesplit::reporting::format_json_move_dry_run(dry_run);
             } else {
                 std::cout << codesplit::reporting::format_text_move_dry_run(dry_run);
             }
-            return dry_run ? 0 : 3;
+            return process_exit_code(dry_run ? ExitCode::success
+                                             : ExitCode::transformation_blocked);
         }
         if (command.report_format == codesplit::cli::ReportFormat::json) {
             std::cout << codesplit::reporting::format_json_move_plan(plan);
         } else {
             std::cout << codesplit::reporting::format_text_move_plan(plan);
         }
-        return plan ? 0 : 3;
+        return process_exit_code(plan ? ExitCode::success : ExitCode::transformation_blocked);
     }
 
     if (command.report_format == codesplit::cli::ReportFormat::json) {
@@ -192,5 +197,5 @@ int main(int argc, char* argv[]) {
                                                               inventory);
     }
 
-    return 0;
+    return process_exit_code(ExitCode::success);
 }
