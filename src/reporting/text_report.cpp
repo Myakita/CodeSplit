@@ -172,6 +172,21 @@ std::string format_text_report(const analysis::SourceFileInfo& info, std::uintma
                        << include.origin.path.string() << ':' << include.origin.begin_line << '\n';
             }
         }
+        if (!inventory.macros.empty()) {
+            report << "Macro dependencies: " << inventory.macros.size() << '\n';
+            for (const auto& macro : inventory.macros) {
+                report << "- " << macro.source_qualified_name << " -> " << macro.macro_name << '\n';
+                if (macro.definition.has_value()) {
+                    report << "  Definition: " << macro.definition->path.string() << ", lines "
+                           << macro.definition->begin_line << '-' << macro.definition->end_line
+                           << '\n';
+                }
+                for (const auto& expansion : macro.expansions) {
+                    report << "  Expansion: " << expansion.path.string() << ':'
+                           << expansion.begin_line << '\n';
+                }
+            }
+        }
     }
     return report.str();
 }

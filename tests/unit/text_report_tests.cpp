@@ -114,6 +114,39 @@ void formats_source_file_information() {
                         },
                 },
             },
+        .macros =
+            {
+                {
+                    .source_symbol_id = "c:@N@sample@S@Worker@F@run#I#",
+                    .source_qualified_name = "sample::Worker::run",
+                    .macro_name = "APPLY_OFFSET",
+                    .definition =
+                        codesplit::analysis::SourceRange{
+                            .path = "include/macros.hpp",
+                            .begin_offset = 12,
+                            .end_offset = 47,
+                            .begin_line = 2,
+                            .end_line = 2,
+                        },
+                    .expansions =
+                        {
+                            {
+                                .path = "src/large.cpp",
+                                .begin_offset = 180,
+                                .end_offset = 199,
+                                .begin_line = 9,
+                                .end_line = 9,
+                            },
+                            {
+                                .path = "src/large.cpp",
+                                .begin_offset = 205,
+                                .end_offset = 224,
+                                .begin_line = 10,
+                                .end_line = 10,
+                            },
+                        },
+                },
+            },
         .diagnostics =
             {
                 {
@@ -153,7 +186,12 @@ void formats_source_file_information() {
                  "- global read sample::Worker::run -> sample::counter\n"
                  "- global write sample::Worker::run -> sample::counter\n"
                  "Include dependencies: 1\n"
-                 "- quoted worker.hpp -> include/worker.hpp at src/large.cpp:1\n",
+                 "- quoted worker.hpp -> include/worker.hpp at src/large.cpp:1\n"
+                 "Macro dependencies: 1\n"
+                 "- sample::Worker::run -> APPLY_OFFSET\n"
+                 "  Definition: include/macros.hpp, lines 2-2\n"
+                 "  Expansion: src/large.cpp:9\n"
+                 "  Expansion: src/large.cpp:10\n",
                  "text report should contain stable source-file information");
 }
 

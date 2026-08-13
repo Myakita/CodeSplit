@@ -96,6 +96,32 @@ void formats_source_file_as_json() {
                         },
                 },
             },
+        .macros =
+            {
+                {
+                    .source_symbol_id = "c:@N@sample@F@helper#I#",
+                    .source_qualified_name = "sample::helper",
+                    .macro_name = "APPLY_OFFSET",
+                    .definition =
+                        codesplit::analysis::SourceRange{
+                            .path = "include/macros.hpp",
+                            .begin_offset = 12,
+                            .end_offset = 47,
+                            .begin_line = 2,
+                            .end_line = 2,
+                        },
+                    .expansions =
+                        {
+                            {
+                                .path = "src/large.cpp",
+                                .begin_offset = 30,
+                                .end_offset = 49,
+                                .begin_line = 3,
+                                .end_line = 3,
+                            },
+                        },
+                },
+            },
         .diagnostics =
             {
                 {
@@ -178,6 +204,29 @@ void formats_source_file_as_json() {
                  "        }\n"
                  "      }\n"
                  "    ],\n"
+                 "    \"macros\": [\n"
+                 "      {\n"
+                 "        \"source_symbol_id\": \"c:@N@sample@F@helper#I#\",\n"
+                 "        \"source_qualified_name\": \"sample::helper\",\n"
+                 "        \"macro_name\": \"APPLY_OFFSET\",\n"
+                 "        \"definition\": {\n"
+                 "          \"path\": \"include/macros.hpp\",\n"
+                 "          \"begin_offset\": 12,\n"
+                 "          \"end_offset\": 47,\n"
+                 "          \"begin_line\": 2,\n"
+                 "          \"end_line\": 2\n"
+                 "        },\n"
+                 "        \"expansions\": [\n"
+                 "          {\n"
+                 "            \"path\": \"src/large.cpp\",\n"
+                 "            \"begin_offset\": 30,\n"
+                 "            \"end_offset\": 49,\n"
+                 "            \"begin_line\": 3,\n"
+                 "            \"end_line\": 3\n"
+                 "          }\n"
+                 "        ]\n"
+                 "      }\n"
+                 "    ],\n"
                  "    \"definitions\": [\n"
                  "      {\n"
                  "        \"kind\": \"free_function\",\n"
@@ -238,6 +287,7 @@ void escapes_special_characters_in_path() {
                  "    \"diagnostics\": [],\n"
                  "    \"dependencies\": [],\n"
                  "    \"includes\": [],\n"
+                 "    \"macros\": [],\n"
                  "    \"definitions\": []\n"
                  "  }\n"
                  "}\n",

@@ -226,6 +226,55 @@ void append_includes(std::ostringstream& report,
     report << "    ]";
 }
 
+void append_macros(std::ostringstream& report,
+                   const std::vector<analysis::MacroDependency>& macros) {
+    if (macros.empty()) {
+        report << "[]";
+        return;
+    }
+
+    report << "[\n";
+    for (std::size_t index = 0; index < macros.size(); ++index) {
+        const auto& macro = macros[index];
+        report << "      {\n";
+        report << "        \"source_symbol_id\": \"" << escape_json_string(macro.source_symbol_id)
+               << "\",\n";
+        report << "        \"source_qualified_name\": \""
+               << escape_json_string(macro.source_qualified_name) << "\",\n";
+        report << "        \"macro_name\": \"" << escape_json_string(macro.macro_name) << "\",\n";
+        report << "        \"definition\": ";
+        if (macro.definition.has_value()) {
+            report << "{\n";
+            report << "          \"path\": \""
+                   << escape_json_string(path_to_utf8(macro.definition->path)) << "\",\n";
+            report << "          \"begin_offset\": " << macro.definition->begin_offset << ",\n";
+            report << "          \"end_offset\": " << macro.definition->end_offset << ",\n";
+            report << "          \"begin_line\": " << macro.definition->begin_line << ",\n";
+            report << "          \"end_line\": " << macro.definition->end_line << "\n";
+            report << "        },\n";
+        } else {
+            report << "null,\n";
+        }
+        report << "        \"expansions\": [\n";
+        for (std::size_t expansion_index = 0; expansion_index < macro.expansions.size();
+             ++expansion_index) {
+            const auto& expansion = macro.expansions[expansion_index];
+            report << "          {\n";
+            report << "            \"path\": \"" << escape_json_string(path_to_utf8(expansion.path))
+                   << "\",\n";
+            report << "            \"begin_offset\": " << expansion.begin_offset << ",\n";
+            report << "            \"end_offset\": " << expansion.end_offset << ",\n";
+            report << "            \"begin_line\": " << expansion.begin_line << ",\n";
+            report << "            \"end_line\": " << expansion.end_line << "\n";
+            report << "          }"
+                   << (expansion_index + 1 == macro.expansions.size() ? "\n" : ",\n");
+        }
+        report << "        ]\n";
+        report << "      }" << (index + 1 == macros.size() ? "\n" : ",\n");
+    }
+    report << "    ]";
+}
+
 void append_source_range(std::ostringstream& report,
                          const std::optional<analysis::SourceRange>& source_range) {
     if (!source_range.has_value()) {
@@ -311,6 +360,9 @@ std::string format_json_report(const analysis::SourceFileInfo& info, std::uintma
     report << ",\n";
     report << "    \"includes\": ";
     append_includes(report, inventory.includes);
+    report << ",\n";
+    report << "    \"macros\": ";
+    append_macros(report, inventory.macros);
     report << ",\n";
     report << "    \"definitions\": ";
     if (inventory.callables.empty()) {
