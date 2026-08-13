@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <string_view>
 
 namespace codesplit::planning {
@@ -57,6 +58,23 @@ std::string target_text_for(const MovePlan& plan, std::string_view definition,
     return target_text;
 }
 
+std::string joined_arguments(const std::vector<std::string>& parameter_names) {
+    std::ostringstream arguments;
+    for (std::size_t index = 0; index < parameter_names.size(); ++index) {
+        if (index != 0) {
+            arguments << ", ";
+        }
+        arguments << parameter_names[index];
+    }
+    return arguments.str();
+}
+
+std::string trim_trailing_whitespace(std::string text) {
+    const auto last_character = text.find_last_not_of(" \t\r\n");
+    text.resize(last_character == std::string::npos ? 0 : last_character + 1);
+    return text;
+}
+
 } // namespace
 
 bool replacements_overlap(const TextReplacement& left, const TextReplacement& right) {
@@ -75,9 +93,9 @@ MoveDryRun draft_callable_move(const MovePlan& plan) {
         add_blocker(dry_run, MoveDryRunBlockerKind::plan_blocked, "move plan contains blockers");
         return dry_run;
     }
-    if (!plan.definition.has_value()) {
+    if (!plan.definition.has_value() || !plan.body.has_value()) {
         add_blocker(dry_run, MoveDryRunBlockerKind::invalid_source_range,
-                    "move plan has no definition range");
+                    "move plan has no definition or body range");
         return dry_run;
     }
 
@@ -96,21 +114,56 @@ MoveDryRun draft_callable_move(const MovePlan& plan) {
                                   std::istreambuf_iterator<char>{}};
     const auto begin = plan.definition->begin_offset;
     const auto end = plan.definition->end_offset;
-    if (begin >= end || end > source_text.size()) {
+    const auto body_begin = plan.body->begin_offset;
+    const auto name_begin = plan.name_offset;
+    if (begin >= end || end > source_text.size() || body_begin <= begin || body_begin >= end ||
+        name_begin < begin || name_begin + plan.callable_name.size() > body_begin ||
+        plan.callable_name.empty() || plan.implementation_name.empty()) {
         add_blocker(dry_run, MoveDryRunBlockerKind::invalid_source_range,
                     std::to_string(begin) + "-" + std::to_string(end));
+        return dry_run;
+    }
+    if (source_text.compare(static_cast<std::size_t>(name_begin), plan.callable_name.size(),
+                            plan.callable_name) != 0) {
+        add_blocker(dry_run, MoveDryRunBlockerKind::invalid_source_range,
+                    "callable name does not match its source range");
         return dry_run;
     }
 
     const auto definition =
         source_text.substr(static_cast<std::size_t>(begin), static_cast<std::size_t>(end - begin));
     const auto line_ending = line_ending_for(source_text, static_cast<std::size_t>(end));
-    auto target_text = target_text_for(plan, definition, line_ending);
+    const auto relative_name = static_cast<std::size_t>(name_begin - begin);
+    const auto relative_body = static_cast<std::size_t>(body_begin - begin);
+    auto implementation_definition = definition;
+    implementation_definition.replace(relative_name, plan.callable_name.size(),
+                                      plan.implementation_name);
+    auto implementation_declaration = definition.substr(0, relative_body);
+    implementation_declaration.replace(relative_name, plan.callable_name.size(),
+                                       plan.implementation_name);
+    implementation_declaration = trim_trailing_whitespace(std::move(implementation_declaration));
+    implementation_declaration += ';';
+    auto wrapper = definition.substr(0, relative_body);
+    wrapper += '{';
+    wrapper += line_ending;
+    wrapper += "    ";
+    if (!plan.returns_void) {
+        wrapper += "return ";
+    }
+    wrapper += plan.implementation_name + '(' + joined_arguments(plan.parameter_names) + ");";
+    wrapper += line_ending;
+    wrapper += '}';
+    auto source_replacement = implementation_declaration;
+    source_replacement += line_ending;
+    source_replacement += line_ending;
+    source_replacement += wrapper;
+    auto target_text = target_text_for(plan, implementation_definition, line_ending);
     dry_run.replacements = {
         {.path = plan.source_path,
          .begin_offset = begin,
          .end_offset = end,
-         .expected_text = definition},
+         .expected_text = definition,
+         .replacement_text = std::move(source_replacement)},
         {.path = plan.target_path,
          .begin_offset = 0,
          .end_offset = 0,

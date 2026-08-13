@@ -72,10 +72,11 @@ void plans_isolated_external_function() {
     }
     expect(plan.steps.size() == 4, "ready plan should contain four ordered steps");
     if (plan.steps.size() == 4) {
-        expect(plan.steps[0].kind == codesplit::planning::MovePlanStepKind::copy_definition,
-               "plan should copy before removing the source definition");
-        expect(plan.steps[1].kind == codesplit::planning::MovePlanStepKind::remove_definition,
-               "plan should remove the original after copying");
+        expect(plan.steps[0].kind == codesplit::planning::MovePlanStepKind::create_implementation,
+               "plan should first create the extracted implementation");
+        expect(plan.steps[1].kind ==
+                   codesplit::planning::MovePlanStepKind::replace_body_with_delegate,
+               "plan should retain a delegating original function");
         expect(plan.steps[2].kind == codesplit::planning::MovePlanStepKind::validate_frontend,
                "plan should repeat frontend analysis");
         expect(plan.steps[3].kind == codesplit::planning::MovePlanStepKind::build_and_test,

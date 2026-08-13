@@ -139,8 +139,8 @@ MovePlan plan_callable_move(const std::filesystem::path& source_path,
 
     if (plan.blockers.empty()) {
         plan.steps = {
-            {.kind = MovePlanStepKind::copy_definition},
-            {.kind = MovePlanStepKind::remove_definition},
+            {.kind = MovePlanStepKind::create_implementation},
+            {.kind = MovePlanStepKind::replace_body_with_delegate},
             {.kind = MovePlanStepKind::validate_frontend},
             {.kind = MovePlanStepKind::build_and_test},
         };

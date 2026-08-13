@@ -57,7 +57,7 @@ codesplit::planning::MovePlan ready_plan(const std::filesystem::path& source,
                 .begin_line = 3,
                 .end_line = 5,
             },
-        .steps = {{.kind = codesplit::planning::MovePlanStepKind::copy_definition}},
+        .steps = {{.kind = codesplit::planning::MovePlanStepKind::create_implementation}},
     };
 }
 
@@ -70,6 +70,7 @@ void drafts_two_non_overlapping_replacements() {
 
     auto plan = ready_plan(source, target);
     plan.definition->end_offset = contents.find("}\n") + 1;
+    plan.body->end_offset = plan.definition->end_offset;
     const auto dry_run = codesplit::planning::draft_callable_move(plan);
 
     expect(static_cast<bool>(dry_run), "valid plan should produce a dry run");
@@ -117,6 +118,9 @@ void preserves_crlf_line_endings() {
     auto plan = ready_plan(source, target);
     plan.definition->begin_offset = contents.find("int isolated");
     plan.definition->end_offset = contents.find("}\r\n") + 1;
+    plan.name_offset = contents.find("isolated");
+    plan.body->begin_offset = contents.find('{');
+    plan.body->end_offset = plan.definition->end_offset;
 
     const auto dry_run = codesplit::planning::draft_callable_move(plan);
 
@@ -134,6 +138,9 @@ void creates_declaring_include_and_namespace_context() {
     auto plan = ready_plan(source, target);
     plan.definition->begin_offset = 0;
     plan.definition->end_offset = contents.size() - 1;
+    plan.name_offset = contents.find("isolated");
+    plan.body->begin_offset = contents.find('{');
+    plan.body->end_offset = plan.definition->end_offset;
     plan.enclosing_namespaces = {"company", "legacy"};
     plan.declaration_include = codesplit::analysis::IncludeDependency{
         .kind = codesplit::analysis::IncludeKind::quoted,
@@ -146,9 +153,38 @@ void creates_declaring_include_and_namespace_context() {
     expect(dry_run.replacements[1].replacement_text ==
                "#include \"legacy/isolated.hpp\"\n\n"
                "namespace company {\nnamespace legacy {\n\n"
-               "int isolated() { return 1; }\n\n"
+               "int isolated_codesplit_implementation() { return 1; }\n\n"
                "} // namespace legacy\n} // namespace company\n",
            "target should preserve include and lexical namespace context");
+}
+
+void delegates_void_function_with_named_parameters() {
+    TemporaryDirectory directory;
+    const auto source = directory.path() / "source.cpp";
+    const auto target = directory.path() / "target.cpp";
+    const std::string contents = "void notify(int value) { (void)value; }\n";
+    std::ofstream{source, std::ios::binary} << contents;
+    auto plan = ready_plan(source, target);
+    plan.qualified_name = "notify";
+    plan.callable_name = "notify";
+    plan.implementation_name = "notify_codesplit_implementation";
+    plan.parameter_names = {"value"};
+    plan.returns_void = true;
+    plan.name_offset = contents.find("notify");
+    plan.definition->begin_offset = 0;
+    plan.definition->end_offset = contents.size() - 1;
+    plan.body->begin_offset = contents.find('{');
+    plan.body->end_offset = plan.definition->end_offset;
+
+    const auto dry_run = codesplit::planning::draft_callable_move(plan);
+
+    expect(static_cast<bool>(dry_run), "void function should produce a forwarding dry run");
+    expect(dry_run.replacements[0].replacement_text.find(
+               "notify_codesplit_implementation(value);") != std::string::npos,
+           "void wrapper should delegate without return");
+    expect(dry_run.replacements[0].replacement_text.find(
+               "return notify_codesplit_implementation") == std::string::npos,
+           "void wrapper should not return a value");
 }
 
 void detects_half_open_range_overlap() {
@@ -170,5 +206,6 @@ int main() {
     rejects_existing_target();
     preserves_crlf_line_endings();
     creates_declaring_include_and_namespace_context();
+    delegates_void_function_with_named_parameters();
     detects_half_open_range_overlap();
 }

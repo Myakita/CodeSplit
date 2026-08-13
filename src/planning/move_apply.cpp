@@ -85,10 +85,9 @@ MoveApplyResult apply_callable_move(const MoveDryRun& dry_run, const MoveValidat
     const auto& removal = dry_run.replacements[0];
     const auto& insertion = dry_run.replacements[1];
     if (removal.path != dry_run.plan.source_path || insertion.path != dry_run.plan.target_path ||
-        !removal.replacement_text.empty() || insertion.begin_offset != 0 ||
-        insertion.end_offset != 0) {
+        insertion.begin_offset != 0 || insertion.end_offset != 0) {
         add_blocker(result, MoveApplyBlockerKind::invalid_replacement_set,
-                    "replacement roles do not match the move plan");
+                    "source rewrite and target insertion do not match the move plan");
         return result;
     }
 

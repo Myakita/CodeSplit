@@ -40,6 +40,8 @@ std::string_view constraint_name(analysis::CallableConstraint constraint) {
         return "source_range_unavailable";
     case analysis::CallableConstraint::exceeds_size_limit:
         return "exceeds_size_limit";
+    case analysis::CallableConstraint::delegation_unsupported:
+        return "delegation_unsupported";
     }
     return "unknown";
 }
@@ -114,10 +116,10 @@ std::string_view blocker_kind_name(planning::MovePlanBlockerKind kind) {
 std::string_view step_name(planning::MovePlanStepKind kind) {
     using enum planning::MovePlanStepKind;
     switch (kind) {
-    case copy_definition:
-        return "copy definition to target";
-    case remove_definition:
-        return "remove definition from source";
+    case create_implementation:
+        return "create extracted implementation in target";
+    case replace_body_with_delegate:
+        return "replace source body with a delegating call";
     case validate_frontend:
         return "repeat frontend analysis";
     case build_and_test:

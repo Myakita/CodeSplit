@@ -23,8 +23,8 @@ enum class MovePlanBlockerKind {
 };
 
 enum class MovePlanStepKind {
-    copy_definition,
-    remove_definition,
+    create_implementation,
+    replace_body_with_delegate,
     validate_frontend,
     build_and_test,
 };
@@ -35,7 +35,7 @@ struct MovePlanBlocker {
 };
 
 struct MovePlanStep {
-    MovePlanStepKind kind = MovePlanStepKind::copy_definition;
+    MovePlanStepKind kind = MovePlanStepKind::create_implementation;
 };
 
 struct MovePlan {

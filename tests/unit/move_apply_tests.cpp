@@ -46,6 +46,10 @@ codesplit::planning::MoveDryRun create_dry_run(const std::filesystem::path& sour
         .target_path = target,
         .symbol_id = "c:@F@isolated#",
         .qualified_name = "isolated",
+        .callable_name = "isolated",
+        .implementation_name = "isolated_codesplit_implementation",
+        .returns_void = false,
+        .name_offset = contents.find("isolated", begin),
         .definition =
             codesplit::analysis::SourceRange{
                 .path = source,
@@ -54,7 +58,15 @@ codesplit::planning::MoveDryRun create_dry_run(const std::filesystem::path& sour
                 .begin_line = 3,
                 .end_line = 3,
             },
-        .steps = {{.kind = codesplit::planning::MovePlanStepKind::copy_definition}},
+        .body =
+            codesplit::analysis::SourceRange{
+                .path = source,
+                .begin_offset = contents.find('{', begin),
+                .end_offset = end,
+                .begin_line = 3,
+                .end_line = 3,
+            },
+        .steps = {{.kind = codesplit::planning::MovePlanStepKind::create_implementation}},
     };
     return codesplit::planning::draft_callable_move(plan);
 }
@@ -69,10 +81,13 @@ void applies_staged_files_and_removes_backup() {
 
     expect(static_cast<bool>(result), "valid dry run should be applied");
     expect(result.applied, "result should record successful application");
-    expect(read_file(source) == "int retained = 1;\n\n\n",
-           "source should retain all text outside the definition range");
-    expect(read_file(target) == "int isolated() { return 2; }\n",
-           "target should contain the moved definition");
+    expect(read_file(source) ==
+               "int retained = 1;\n\n"
+               "int isolated_codesplit_implementation();\n\n"
+               "int isolated() {\n    return isolated_codesplit_implementation();\n}\n",
+           "source should retain a forwarding definition");
+    expect(read_file(target) == "int isolated_codesplit_implementation() { return 2; }\n",
+           "target should contain the extracted implementation");
     expect(!std::filesystem::exists(source.string() + ".codesplit.tmp"),
            "source staging file should be removed");
     expect(!std::filesystem::exists(target.string() + ".codesplit.tmp"),

@@ -273,6 +273,14 @@ void inventories_source_definitions() {
                "callable size should be derived from byte offsets");
         expect(function->enclosing_namespaces == std::vector<std::string>{"sample"},
                "free function should retain its lexical namespace context");
+        expect(function->name == "helper", "free function should retain its unqualified name");
+        expect(function->parameter_names == std::vector<std::string>{"value"},
+               "free function should retain parameter names for delegation");
+        expect(!function->returns_void, "non-void function should retain its return category");
+        expect(function->name_offset >= function->begin_offset &&
+                   function->name_offset < function->end_offset,
+               "free function should retain its name offset");
+        expect(function->body.has_value(), "free function should retain its body range");
         expect(
             has_constraint(*function, codesplit::analysis::CallableConstraint::exceeds_size_limit),
             "callable larger than the configured limit should be marked");

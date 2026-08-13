@@ -236,8 +236,8 @@ void formats_ready_move_plan() {
             },
         .steps =
             {
-                {.kind = codesplit::planning::MovePlanStepKind::copy_definition},
-                {.kind = codesplit::planning::MovePlanStepKind::remove_definition},
+                {.kind = codesplit::planning::MovePlanStepKind::create_implementation},
+                {.kind = codesplit::planning::MovePlanStepKind::replace_body_with_delegate},
                 {.kind = codesplit::planning::MovePlanStepKind::validate_frontend},
                 {.kind = codesplit::planning::MovePlanStepKind::build_and_test},
             },
@@ -252,8 +252,8 @@ void formats_ready_move_plan() {
                  "Callable: isolated\n"
                  "Definition: lines 8-10, offsets 100-160\n"
                  "Planned steps: 4\n"
-                 "1. copy definition to target\n"
-                 "2. remove definition from source\n"
+                 "1. create extracted implementation in target\n"
+                 "2. replace source body with a delegating call\n"
                  "3. repeat frontend analysis\n"
                  "4. build and test affected project\n",
                  "text move plan should expose ordered read-only steps");

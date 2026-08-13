@@ -504,6 +504,18 @@ class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
         callable.in_anonymous_namespace = is_in_anonymous_namespace(*canonical_declaration);
         callable.qualified_name = declaration->getQualifiedNameAsString();
         callable.symbol_id = symbol_id_for(*canonical_declaration);
+        callable.name = declaration->getNameAsString();
+        callable.returns_void = declaration->getReturnType()->isVoidType();
+        for (const auto* parameter : declaration->parameters()) {
+            callable.parameter_names.push_back(parameter->getNameAsString());
+            if (parameter->getName().empty()) {
+                add_constraint(callable, CallableConstraint::delegation_unsupported);
+            }
+        }
+        if (declaration->isVariadic() || declaration->getDescribedFunctionTemplate() != nullptr ||
+            declaration->isFunctionTemplateSpecialization()) {
+            add_constraint(callable, CallableConstraint::delegation_unsupported);
+        }
         callable.enclosing_namespaces = enclosing_lexical_namespaces(*declaration);
         if (canonical_declaration != declaration) {
             callable.declaration = source_range_for(canonical_declaration->getSourceRange(),
@@ -528,6 +540,19 @@ class CallableVisitor : public clang::RecursiveASTVisitor<CallableVisitor> {
 
         if (declaration_begin.isMacroID() || body_end.isMacroID()) {
             add_constraint(callable, CallableConstraint::macro_expansion);
+        }
+
+        const auto name_location = source_manager_.getExpansionLoc(declaration->getLocation());
+        callable.body =
+            source_range_for(body->getSourceRange(), source_manager_, language_options_);
+        if (name_location.isValid() &&
+            source_manager_.getFileID(begin) == source_manager_.getFileID(name_location)) {
+            callable.name_offset = source_manager_.getFileOffset(name_location);
+        } else {
+            add_constraint(callable, CallableConstraint::source_range_unavailable);
+        }
+        if (!callable.body.has_value()) {
+            add_constraint(callable, CallableConstraint::source_range_unavailable);
         }
 
         callable.begin_line = source_manager_.getExpansionLineNumber(declaration_begin);
