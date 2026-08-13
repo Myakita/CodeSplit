@@ -270,3 +270,29 @@ commit не осталось.
 SHA-256 исходника после операции совпал с хешем до неё, целевой файл удалён, `.codesplit.tmp` и
 `.codesplit.bak` отсутствуют. Полная и fallback-конфигурации после чистой сборки прошли 9 из 9
 тестов каждая.
+
+## Проверка CMake build graph и сборочного отката
+
+- Дата: 2026-08-13
+- Проверяемый коммит реализации: `2556ff4 feat: integrate moved sources into CMake targets`
+- Платформа: Windows, MSVC/Clang, Ninja, CMake 4.1, LLVM/Clang 22.1.8
+
+В `CodeSplitBuildManualTest` созданы два изолированных CMake-проекта с целью `core`. В успешном
+сценарии dry-run определил цель по `CMakeFiles/core.dir`, добавил третью замену для
+`CMakeLists.txt`, а apply выполнил повторную конфигурацию и собрал `source.cpp` вместе с новым
+`isolated.cpp`. В build file сохранился `target_sources(core PRIVATE "isolated.cpp")`.
+
+В отрицательном сценарии появление `isolated.cpp` намеренно включает define, вызывающий `#error`
+только при сборке цели. Предварительный frontend-анализ обоих файлов проходит, но target build
+падает. Результат:
+
+- код завершения 4;
+- `validated: false`;
+- `rolled_back: true`;
+- `build_target: core`;
+- blocker `validation_failed`.
+
+SHA-256 исходника и `CMakeLists.txt` совпадают с состоянием до операции, цель удалена, служебных
+файлов нет. Последующая сборка восстановленного `core` успешна и сообщает, что выполнять нечего:
+производный Ninja graph также восстановлен. Вывод дочернего CMake подавлен, поэтому JSON остаётся
+машиночитаемым. Полная и fallback-конфигурации CodeSplit прошли 10 из 10 тестов каждая.
