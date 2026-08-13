@@ -121,3 +121,27 @@ fallback-сборка прошли 6 из 6 тестов каждая.
 Fallback-версия на том же исходнике завершилась с кодом 0, выполнила физический анализ и явно
 сообщила о недоступности compilation command и callable inventory. Это соответствует прежнему
 контракту ограниченной сборки.
+
+## Дополнительная проверка связывания callable
+
+- Дата: 2026-08-13
+- Проверяемый коммит реализации: `475bda8 feat: report callable linkage`
+- Платформа: Windows, MSVC, Ninja, LLVM/Clang 22.1.8
+
+После изменения публичной структуры результата полная и fallback-конфигурации собраны с
+`--clean-first` и прошли 6 из 6 тестов каждая.
+
+Полная версия CodeSplit проанализировала
+`tests/unit/callable_inventory_tests.cpp` через его настоящую команду из compilation database:
+
+- код завершения 0;
+- inventory доступен, диагностик нет;
+- найдено 16 callable;
+- один callable имеет `external` linkage;
+- 15 callable имеют `internal` linkage;
+- те же 15 callable имеют `in_anonymous_namespace: true`.
+
+Внешней сущностью является `main`, а среди внутренних вручную просмотрены `expect`,
+`path_to_utf8`, `has_constraint` и функции поиска тестовых результатов. Их имена, строки и linkage
+соответствуют исходнику. Отдельный unit-сценарий подтверждает, что namespace-функция с `static`
+также имеет `internal`, но не получает признак anonymous namespace.
