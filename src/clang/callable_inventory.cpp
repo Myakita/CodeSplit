@@ -289,8 +289,8 @@ void associate_macro_dependencies(const std::vector<CallableDefinition>& callabl
         }
 
         for (const auto& macro : macro_expansions) {
-            if (macro.expansion.begin_offset < callable.begin_offset ||
-                macro.expansion.end_offset > callable.end_offset) {
+            if (macro.expansion.end_offset <= callable.begin_offset ||
+                macro.expansion.begin_offset >= callable.end_offset) {
                 continue;
             }
 

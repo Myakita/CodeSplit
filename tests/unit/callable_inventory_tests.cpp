@@ -391,6 +391,14 @@ void inventories_source_definitions() {
         expect(
             has_constraint(*generated, codesplit::analysis::CallableConstraint::exceeds_size_limit),
             "macro-generated oversized definition should retain both constraints");
+        const auto* macro = find_macro_dependency(result, generated->symbol_id, "DEFINE_FUNCTION");
+        expect(macro != nullptr, "macro generating the callable should produce a macro dependency");
+        if (macro != nullptr) {
+            expect(macro->definition.has_value() && macro->definition->begin_line == 14,
+                   "generating macro should retain its definition line");
+            expect(macro->expansions.size() == 1 && macro->expansions.front().begin_line == 15,
+                   "generating macro should retain its invocation line");
+        }
     }
 }
 
